@@ -8,7 +8,6 @@ const PaymentCallback = () => {
 
   useEffect(() => {
     const status = searchParams.get('status');
-    const tx_ref = searchParams.get('tx_ref');
     
     if (status === 'successful') {
       setStatus('success');
