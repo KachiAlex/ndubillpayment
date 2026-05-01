@@ -1,5 +1,5 @@
 const express = require('express');
-const { db } = require('../utils/database');
+const database = require('../utils/database');
 const { authenticateJWT } = require('../middleware/auth');
 
 const router = express.Router();
@@ -7,7 +7,7 @@ const router = express.Router();
 // Get wallet balance
 router.get('/balance', authenticateJWT, async (req, res) => {
   try {
-    const wallet = await db('wallets').where({ user_id: req.user.id }).first();
+    const wallet = await database.db('wallets').where({ user_id: req.user.id }).first();
     if (!wallet) return res.status(404).json({ success: false, error: 'Wallet not found' });
     res.json({ success: true, balance: wallet.balance, currency: wallet.currency });
   } catch (err) {
@@ -18,7 +18,7 @@ router.get('/balance', authenticateJWT, async (req, res) => {
 // Get transaction history
 router.get('/transactions', authenticateJWT, async (req, res) => {
   try {
-    const transactions = await db('transactions').where({ user_id: req.user.id }).orderBy('created_at', 'desc');
+    const transactions = await database.db('transactions').where({ user_id: req.user.id }).orderBy('created_at', 'desc');
     res.json({ success: true, transactions });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -31,7 +31,7 @@ router.post('/pay', authenticateJWT, async (req, res) => {
     const { amount, description } = req.body;
     const tx_ref = `TXN-${Date.now()}-${req.user.id}`;
 
-    await db('transactions').insert({
+    await database.db('transactions').insert({
       user_id: req.user.id,
       tx_ref,
       type: 'tuition',

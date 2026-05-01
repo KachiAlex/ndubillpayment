@@ -1,5 +1,5 @@
 const express = require('express');
-const { db } = require('../utils/database');
+const database = require('../utils/database');
 const { authenticateJWT, authorizeRoles } = require('../middleware/auth');
 
 const router = express.Router();
@@ -10,7 +10,7 @@ router.use(authenticateJWT, authorizeRoles('bursar', 'admin'));
 // Dashboard stats
 router.get('/dashboard', async (req, res) => {
   try {
-    const [stats] = await db.raw(`
+    const [stats] = await database.db.raw(`
       SELECT
         (SELECT COUNT(*) FROM users WHERE role = 'student') as total_students,
         (SELECT COUNT(*) FROM transactions WHERE status = 'completed') as total_transactions,
@@ -26,7 +26,7 @@ router.get('/dashboard', async (req, res) => {
 // All transactions
 router.get('/transactions', async (req, res) => {
   try {
-    const transactions = await db('transactions')
+    const transactions = await database.db('transactions')
       .join('users', 'transactions.user_id', 'users.id')
       .select('transactions.*', 'users.first_name', 'users.last_name', 'users.matric_no')
       .orderBy('transactions.created_at', 'desc');
@@ -39,7 +39,7 @@ router.get('/transactions', async (req, res) => {
 // All students
 router.get('/students', async (req, res) => {
   try {
-    const students = await db('users').where({ role: 'student' }).select('id', 'matric_no', 'email', 'first_name', 'last_name', 'department', 'level', 'is_verified', 'created_at');
+    const students = await database.db('users').where({ role: 'student' }).select('id', 'matric_no', 'email', 'first_name', 'last_name', 'department', 'level', 'is_verified', 'created_at');
     res.json({ success: true, students });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -49,7 +49,7 @@ router.get('/students', async (req, res) => {
 // Download receipt
 router.get('/receipt/:receipt_number', async (req, res) => {
   try {
-    const receipt = await db('receipts').where({ receipt_number: req.params.receipt_number }).first();
+    const receipt = await database.db('receipts').where({ receipt_number: req.params.receipt_number }).first();
     if (!receipt || !receipt.pdf_base64) {
       return res.status(404).json({ success: false, error: 'Receipt not found' });
     }

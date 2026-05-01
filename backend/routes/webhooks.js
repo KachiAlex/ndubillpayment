@@ -1,5 +1,5 @@
 const express = require('express');
-const { db } = require('../utils/database');
+const database = require('../utils/database');
 const crypto = require('crypto');
 
 const router = express.Router();
@@ -21,12 +21,12 @@ router.post('/flutterwave', express.raw({ type: 'application/json' }), async (re
     const { status, tx_ref, transaction_id, amount } = payload.data || {};
 
     if (status === 'successful') {
-      await db('transactions').where({ tx_ref }).update({
+      await database.db('transactions').where({ tx_ref }).update({
         status: 'completed',
         flutterwave_ref: String(transaction_id)
       });
     } else {
-      await db('transactions').where({ tx_ref }).update({ status: 'failed' });
+      await database.db('transactions').where({ tx_ref }).update({ status: 'failed' });
     }
 
     res.status(200).json({ success: true });

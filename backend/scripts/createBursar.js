@@ -1,10 +1,10 @@
 const bcrypt = require('bcryptjs');
-const { db } = require('../utils/database');
+const database = require('../utils/database');
 
 async function createBursar() {
   const password_hash = await bcrypt.hash('Admin123!', 10);
 
-  const [user] = await db('users').insert({
+  const [user] = await database.db('users').insert({
     matric_no: 'ADMIN001',
     email: 'bursar@ndu.edu.ng',
     password_hash,
