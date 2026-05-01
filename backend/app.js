@@ -18,6 +18,12 @@ const app = express();
 app.use(helmet());
 app.use(compression());
 
+// Request path logging (visible in Vercel function logs)
+app.use((req, res, next) => {
+  console.log(`[API] ${req.method} ${req.url}`);
+  next();
+});
+
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -39,12 +45,27 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Logging middleware
 app.use(morgan('combined', { stream: { write: message => logger.info(message.trim()) } }));
 
+const { db } = require('./utils/database');
+
 // Health check endpoint
-app.get('/health', (req, res) => {
+app.get('/health', async (req, res) => {
+  let dbStatus = 'unknown';
+  try {
+    if (db) {
+      await db.raw('SELECT 1');
+      dbStatus = 'connected';
+    } else {
+      dbStatus = 'not_initialized';
+    }
+  } catch (err) {
+    dbStatus = 'error: ' + err.message;
+  }
+
   res.status(200).json({
     status: 'OK',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    dbStatus
   });
 });
 

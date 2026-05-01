@@ -12,8 +12,27 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const apiFetch = async (path, options = {}, timeoutMs = 15000) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(`${API_BASE}${path}`, {
+        ...options,
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+      return res;
+    } catch (err) {
+      clearTimeout(timeout);
+      if (err.name === 'AbortError') {
+        throw new Error('Request timed out. The server may be unreachable. Please try again later.');
+      }
+      throw new Error(err.message || 'Network error. Please check your connection.');
+    }
+  };
+
   const login = async (email, password) => {
-    const res = await fetch(`${API_BASE}/auth/login`, {
+    const res = await apiFetch('/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
@@ -27,7 +46,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const register = async (userData) => {
-    const res = await fetch(`${API_BASE}/auth/register`, {
+    const res = await apiFetch('/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(userData),

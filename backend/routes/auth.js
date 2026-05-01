@@ -11,6 +11,14 @@ const QRCode = require('qrcode');
 
 const router = express.Router();
 
+// Guard: return 503 if database is not initialized
+router.use((req, res, next) => {
+  if (!db) {
+    return res.status(503).json({ error: 'Database unavailable' });
+  }
+  next();
+});
+
 // Validation schemas
 const registerSchema = {
   matric_no: Joi.string().pattern(/^NDU\/\d{4}\/\d{3,4}$/i).required().messages({
