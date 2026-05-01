@@ -71,3 +71,6 @@ firebase-adminsdk-*.json
 
 # dataconnect generated files
 .dataconnect
+
+.vercel
+.env*.local
