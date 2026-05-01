@@ -2,12 +2,8 @@ require('dotenv').config();
 
 function getConnection() {
   if (process.env.DATABASE_URL) {
-    return {
-      connectionString: process.env.DATABASE_URL,
-      ssl: process.env.NODE_ENV === 'production'
-        ? { rejectUnauthorized: false }
-        : false
-    };
+    // Pass URL directly — pg driver parses sslmode, channel_binding, etc.
+    return process.env.DATABASE_URL;
   }
   return {
     host: process.env.DB_HOST || 'localhost',
