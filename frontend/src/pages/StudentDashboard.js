@@ -1,0 +1,402 @@
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { useQuery } from 'react-query';
+import { apiFetch } from '../api/config';
+import notificationService from '../services/notificationService';
+import qrCodeService from '../services/qrCodeService';
+import biometricService from '../services/biometricService';
+import NotificationSettings from '../components/NotificationSettings';
+
+const useWallet = () => {
+  return useQuery(['wallet-balance'], async () => {
+    const data = await apiFetch('/wallet/balance');
+    return data; // { balance: number }
+  });
+};
+
+const useRecentTx = () => {
+  return useQuery(['wallet-transactions'], async () => {
+    const data = await apiFetch('/wallet/transactions?limit=5');
+    return data; // [{reference, amount, status, date, receipt_id}]
+  });
+};
+
+const tabs = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'wallet', label: 'Wallet' },
+  { key: 'transactions', label: 'Transactions' },
+];
+
+const StudentDashboard = () => {
+  const { data: wallet, isLoading: loadingBal } = useWallet();
+  const { data: txs, isLoading: loadingTx } = useRecentTx();
+  const [activeTab, setActiveTab] = useState('overview');
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [biometricRegistered, setBiometricRegistered] = useState(false);
+  const [qrCodeDataURL, setQrCodeDataURL] = useState(null);
+  const [showNotificationSettings, setShowNotificationSettings] = useState(false);
+
+  const walletBalanceNgn = wallet?.balance ?? 0;
+  const recentTx = Array.isArray(txs) ? txs : [];
+
+  // Initialize services
+  useEffect(() => {
+    const initializeServices = async () => {
+      // Check biometric availability
+      const biometricInfo = await biometricService.getDeviceInfo();
+      setBiometricAvailable(biometricInfo.available);
+      setBiometricRegistered(biometricInfo.registered);
+
+      // Request notification permission
+      await notificationService.requestPermission();
+    };
+
+    initializeServices();
+  }, []);
+
+  // Generate QR code for wallet
+  useEffect(() => {
+    const generateWalletQR = async () => {
+      try {
+        const user = JSON.parse(localStorage.getItem('user'));
+        if (user?.matric_no) {
+          const qrCode = await qrCodeService.generateWalletQR(user.matric_no, 50000); // Default amount
+          setQrCodeDataURL(qrCode);
+        }
+      } catch (error) {
+        console.error('Error generating wallet QR code:', error);
+      }
+    };
+
+    generateWalletQR();
+  }, []);
+
+  const handleFund = (e) => {
+    e.preventDefault();
+    
+    // Open Flutterwave payment link in new tab
+    const flutterwaveUrl = 'https://sandbox.flutterwave.com/pay/oajfvrwbl7mj';
+    window.open(flutterwaveUrl, '_blank');
+  };
+
+  const handleBiometricRegister = async () => {
+    try {
+      const user = JSON.parse(localStorage.getItem('user'));
+      await biometricService.register(user.id, user.email);
+      setBiometricRegistered(true);
+      notificationService.showNotification('Biometric Setup Complete! 🔐', {
+        body: 'You can now use biometric authentication for quick login'
+      });
+    } catch (error) {
+      notificationService.showNotification('Biometric Setup Failed ❌', {
+        body: biometricService.getErrorMessage(error)
+      });
+    }
+  };
+
+  const handleBiometricLogin = async () => {
+    try {
+      await biometricService.authenticate();
+      notificationService.showNotification('Biometric Login Successful! ✅', {
+        body: 'Welcome back to your dashboard'
+      });
+    } catch (error) {
+      notificationService.showNotification('Biometric Login Failed ❌', {
+        body: biometricService.getErrorMessage(error)
+      });
+    }
+  };
+
+  const handleDownloadQR = () => {
+    if (qrCodeDataURL) {
+      qrCodeService.downloadQRCode(qrCodeDataURL, 'ndu-wallet-qr.png');
+    }
+  };
+
+  const handlePrintQR = () => {
+    if (qrCodeDataURL) {
+      qrCodeService.printQRCode(qrCodeDataURL, 'NDU Wallet QR Code');
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      {/* MGX Hero */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500">
+        <div className="absolute inset-0 opacity-20" style={{backgroundImage:'radial-gradient(circle at 20% 20%, rgba(255,255,255,0.4) 0, transparent 40%), radial-gradient(circle at 80% 0%, rgba(255,255,255,0.25) 0, transparent 35%)'}} />
+        <div className="relative px-6 py-10 sm:px-10 sm:py-12">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            <div>
+              <p className="text-cyan-100 text-xs uppercase tracking-widest">Niger Delta University</p>
+              <h1 className="mt-2 text-2xl sm:text-3xl font-bold text-white">Student Dashboard</h1>
+              <p className="mt-2 text-cyan-50/90">Manage your tuition wallet, fund via Flutterwave, and download receipts.</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button onClick={handleFund} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-blue-700 font-semibold shadow-md hover:shadow-lg transition">
+                <span>Fund your wallet</span>
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Balance Indicator */}
+      <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">Payment Status</h3>
+          <div className="flex items-center gap-2">
+            <div className={`w-3 h-3 rounded-full ${walletBalanceNgn > 0 ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+            <span className="text-sm font-medium text-gray-600">
+              {walletBalanceNgn > 0 ? 'Up to Date' : 'Payment Required'}
+            </span>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <div className="text-sm text-gray-600">Current Balance</div>
+            <div className="text-2xl font-bold text-gray-900">₦{walletBalanceNgn?.toLocaleString() || 0}</div>
+          </div>
+          
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <div className="text-sm text-gray-600">Payment Status</div>
+            <div className={`text-lg font-semibold ${walletBalanceNgn > 0 ? 'text-green-600' : 'text-yellow-600'}`}>
+              {walletBalanceNgn > 0 ? '✅ Paid' : '⚠️ Outstanding'}
+            </div>
+          </div>
+          
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <div className="text-sm text-gray-600">Action Required</div>
+            <div className="text-lg font-semibold text-gray-900">
+              {walletBalanceNgn > 0 ? 'None' : 'Fund Wallet'}
+            </div>
+          </div>
+        </div>
+        
+        {walletBalanceNgn === 0 && (
+          <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 text-yellow-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 19.5c-.77.833.192 2.5 1.732 2.5z"/>
+              </svg>
+              <div>
+                <h4 className="text-sm font-medium text-yellow-800">Payment Required</h4>
+                <p className="text-sm text-yellow-700 mt-1">
+                  You have an outstanding balance. Please fund your wallet to complete your tuition payment.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Tabs */}
+      <div>
+        <div className="flex items-center gap-2 overflow-x-auto">
+          {tabs.map(t => (
+            <button
+              key={t.key}
+              onClick={() => setActiveTab(t.key)}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition border ${activeTab === t.key ? 'bg-blue-600 text-white border-blue-600 shadow' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Content */}
+      {activeTab === 'overview' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Wallet Card (MGX style) */}
+          <div className="lg:col-span-2">
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-700 via-indigo-700 to-cyan-600 text-white p-6 sm:p-8">
+              <div className="absolute -top-24 -right-24 w-80 h-80 bg-white/10 rounded-full blur-2xl" />
+              <div className="absolute -bottom-24 -left-16 w-72 h-72 bg-white/10 rounded-full blur-2xl" />
+              <div className="relative">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm uppercase tracking-widest text-cyan-200">Student Wallet</h3>
+                  <span className="text-xs px-2 py-1 rounded-full bg-white/15 border border-white/20">NGN</span>
+                </div>
+                <p className="mt-4 text-4xl font-extrabold tracking-tight">{loadingBal ? '…' : `₦${walletBalanceNgn.toLocaleString()}`}</p>
+                <p className="mt-2 text-cyan-100/90 text-sm">Balance updates after payment confirmation</p>
+                <div className="mt-6">
+                  <button onClick={handleFund} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-blue-700 font-semibold shadow-md hover:shadow-lg transition">
+                    <span>Fund wallet via Flutterwave</span>
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 12h14M12 5l7 7-7 7"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Mobile Features */}
+          <div className="space-y-6">
+            {/* QR Code Section */}
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+              <h4 className="text-sm font-semibold text-gray-900 mb-4">Quick Access QR Code</h4>
+              {qrCodeDataURL && (
+                <div className="text-center">
+                  <img src={qrCodeDataURL} alt="Wallet QR Code" className="mx-auto w-32 h-32 border border-gray-200 rounded-lg" />
+                  <p className="text-xs text-gray-500 mt-2">Scan to quickly fund wallet</p>
+                  <div className="flex gap-2 mt-3">
+                    <button onClick={handleDownloadQR} className="flex-1 px-3 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition">
+                      Download
+                    </button>
+                    <button onClick={handlePrintQR} className="flex-1 px-3 py-1.5 text-xs bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition">
+                      Print
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Notification Settings */}
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+              <h4 className="text-sm font-semibold text-gray-900 mb-4">Notifications</h4>
+              <div className="space-y-3">
+                <button 
+                  onClick={() => setShowNotificationSettings(true)}
+                  className="w-full px-4 py-2 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-5 5v-5zM4 19h6v2H4a2 2 0 01-2-2V5a2 2 0 012-2h6v2H4v12z"/>
+                  </svg>
+                  Configure Notifications
+                </button>
+              </div>
+            </div>
+
+            {/* Biometric Authentication */}
+            {biometricAvailable && (
+              <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                <h4 className="text-sm font-semibold text-gray-900 mb-4">Biometric Login</h4>
+                <div className="space-y-3">
+                  {biometricRegistered ? (
+                    <div>
+                      <p className="text-xs text-green-600 mb-3">✓ Biometric authentication enabled</p>
+                      <button 
+                        onClick={handleBiometricLogin}
+                        className="w-full px-4 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition flex items-center justify-center gap-2"
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                        </svg>
+                        Login with Biometric
+                      </button>
+                    </div>
+                  ) : (
+                    <button 
+                      onClick={handleBiometricRegister}
+                      className="w-full px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition flex items-center justify-center gap-2"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                      </svg>
+                      Setup Biometric Login
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Important Info */}
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+              <h4 className="text-sm font-semibold text-gray-900">Important</h4>
+              <ul className="mt-3 text-sm text-gray-600 list-disc pl-5 space-y-1">
+                <li>Withdrawals and transfers are disabled.</li>
+                <li>Receipts generate automatically after successful payment.</li>
+                <li>Keep your reference for reconciliation.</li>
+                <li>Enable notifications for payment updates.</li>
+              </ul>
+            </div>
+            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+              <h4 className="text-sm font-semibold text-gray-900">Quick Links</h4>
+              <div className="mt-3 grid grid-cols-1 gap-3">
+                <Link to="/wallet" className="group flex items-center justify-between p-4 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50/40 transition">
+                  <div>
+                    <p className="text-gray-900 font-medium">Wallet</p>
+                    <p className="text-gray-600 text-sm">Fund wallet and view balance</p>
+                  </div>
+                  <span className="text-blue-600 group-hover:translate-x-0.5 transition">→</span>
+                </Link>
+                <Link to="/transactions" className="group flex items-center justify-between p-4 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50/40 transition">
+                  <div>
+                    <p className="text-gray-900 font-medium">Transactions</p>
+                    <p className="text-gray-600 text-sm">View history and receipts</p>
+                  </div>
+                  <span className="text-blue-600 group-hover:translate-x-0.5 transition">→</span>
+                </Link>
+                <Link to="/profile" className="group flex items-center justify-between p-4 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50/40 transition">
+                  <div>
+                    <p className="text-gray-900 font-medium">Profile</p>
+                    <p className="text-gray-600 text-sm">Update your account details</p>
+                  </div>
+                  <span className="text-blue-600 group-hover:translate-x-0.5 transition">→</span>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'wallet' && (
+        <div className="grid grid-cols-1 gap-6">
+          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+            <h3 className="text-base font-semibold text-gray-900">Wallet Balance</h3>
+            <p className="mt-2 text-3xl font-bold text-blue-700">{loadingBal ? '…' : `₦${walletBalanceNgn.toLocaleString()}`}</p>
+            <button onClick={handleFund} className="mt-4 inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">Fund Wallet</button>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'transactions' && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+            <div>
+              <h3 className="text-base font-semibold text-gray-900">Recent Transactions</h3>
+              <p className="text-sm text-gray-500">Latest wallet funding attempts</p>
+            </div>
+            <Link to="/transactions" className="text-sm text-blue-600 hover:text-blue-700">View all</Link>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {loadingTx ? (
+              <div className="px-6 py-10 text-center text-gray-500">Loading…</div>
+            ) : recentTx.length === 0 ? (
+              <div className="px-6 py-10 text-center text-gray-500">No transactions yet</div>
+            ) : (
+              recentTx.map(tx => (
+                <div key={tx.reference} className="px-6 py-4 flex items-center justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-900">Ref: {tx.reference}</p>
+                    <p className="text-xs text-gray-500">{tx.date}</p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className={`text-sm font-semibold ${tx.status === 'successful' ? 'text-green-600' : tx.status === 'failed' ? 'text-red-600' : 'text-gray-600'}`}>
+                      {tx.status}
+                    </span>
+                    <span className="text-sm font-bold text-gray-900">₦{Number(tx.amount || 0).toLocaleString()}</span>
+                    {tx.status === 'successful' && tx.receipt_id && (
+                      <a href={`/api/wallet/receipt/${tx.receipt_id}`} className="text-sm text-blue-600 hover:text-blue-700">
+                        Download receipt
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Notification Settings Modal */}
+      <NotificationSettings 
+        isOpen={showNotificationSettings}
+        onClose={() => setShowNotificationSettings(false)}
+      />
+    </div>
+  );
+};
+
+export default StudentDashboard;

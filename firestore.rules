@@ -1,0 +1,50 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users collection - only authenticated users can read/write their own data
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && 
+        (resource.data.user_type == 'bursar' || resource.data.user_type == 'admin');
+    }
+    
+    // Wallets collection - users can only read their own wallet
+    match /wallets/{walletId} {
+      allow read: if request.auth != null && 
+        (resource.data.user_id == request.auth.uid || 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.user_type in ['bursar', 'admin']);
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.user_type in ['bursar', 'admin'];
+    }
+    
+    // Transactions collection - users can read their own transactions, admins can read all
+    match /transactions/{transactionId} {
+      allow read: if request.auth != null && 
+        (resource.data.user_id == request.auth.uid || 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.user_type in ['bursar', 'admin']);
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.user_type in ['bursar', 'admin'];
+    }
+    
+    // Receipts collection - users can read their own receipts, admins can read all
+    match /receipts/{receiptId} {
+      allow read: if request.auth != null && 
+        (resource.data.user_id == request.auth.uid || 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.user_type in ['bursar', 'admin']);
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.user_type in ['bursar', 'admin'];
+    }
+    
+    // Audit logs - only admins can read
+    match /audit_logs/{logId} {
+      allow read, write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.user_type == 'admin';
+    }
+    
+    // Payment webhooks - allow system access
+    match /webhooks/{webhookId} {
+      allow read, write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.user_type in ['bursar', 'admin'];
+    }
+  }
+}
