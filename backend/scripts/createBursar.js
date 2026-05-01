@@ -4,19 +4,35 @@ const database = require('../utils/database');
 async function createBursar() {
   const password_hash = await bcrypt.hash('Admin123!', 10);
 
-  const [user] = await database.db('users').insert({
-    matric_no: 'ADMIN001',
-    email: 'bursar@ndu.edu.ng',
-    password_hash,
-    first_name: 'Bursar',
-    last_name: 'Admin',
-    department: 'Finance',
-    level: 'Staff',
-    role: 'bursar',
-    is_verified: true
-  }).returning('*').onConflict('email').merge();
+  const existing = await database.db('users').where({ email: 'bursar@ndu.edu.ng' }).first();
 
-  console.log('Bursar user created/updated:', user.email);
+  let user;
+  if (existing) {
+    [user] = await database.db('users').where({ email: 'bursar@ndu.edu.ng' }).update({
+      password_hash,
+      first_name: 'Bursar',
+      last_name: 'Admin',
+      department: 'Finance',
+      level: 'Staff',
+      user_type: 'bursar',
+      is_verified: true
+    }).returning('*');
+    console.log('Bursar user updated:', user.email);
+  } else {
+    [user] = await database.db('users').insert({
+      matric_number: 'ADMIN001',
+      email: 'bursar@ndu.edu.ng',
+      password_hash,
+      first_name: 'Bursar',
+      last_name: 'Admin',
+      department: 'Finance',
+      level: 'Staff',
+      user_type: 'bursar',
+      is_verified: true
+    }).returning('*');
+    console.log('Bursar user created:', user.email);
+  }
+
   process.exit(0);
 }
 

@@ -9,7 +9,7 @@ const { validate } = require('../middleware/validation');
 const router = express.Router();
 
 const registerSchema = Joi.object({
-  matric_no: Joi.string().pattern(/^NDU\/\d{4}\/\d{3,4}$/i).required().messages({
+  matric_number: Joi.string().pattern(/^NDU\/\d{4}\/\d{3,4}$/i).required().messages({
     'string.pattern.base': 'Student ID must be in format: NDU/YYYY/XXX'
   }),
   email: Joi.string().email().required(),
@@ -27,7 +27,7 @@ const loginSchema = Joi.object({
 
 function generateToken(user) {
   return jwt.sign(
-    { id: user.id, email: user.email, role: user.role, first_name: user.first_name, last_name: user.last_name, matric_no: user.matric_no },
+    { id: user.id, email: user.email, user_type: user.user_type, first_name: user.first_name, last_name: user.last_name, matric_number: user.matric_number },
     process.env.JWT_SECRET || 'defaultsecret',
     { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
   );
@@ -36,10 +36,10 @@ function generateToken(user) {
 // Register
 router.post('/register', validate(registerSchema), async (req, res) => {
   try {
-    const { matric_no, email, password, first_name, last_name, department, level } = req.body;
+    const { matric_number, email, password, first_name, last_name, department, level } = req.body;
 
     // Check existing user
-    const existing = await database.db('users').where({ email }).orWhere({ matric_no }).first();
+    const existing = await database.db('users').where({ email }).orWhere({ matric_number }).first();
     if (existing) {
       return res.status(400).json({ success: false, error: 'Email or matric number already registered' });
     }
@@ -47,21 +47,21 @@ router.post('/register', validate(registerSchema), async (req, res) => {
     const password_hash = await bcrypt.hash(password, 10);
 
     const [user] = await database.db('users').insert({
-      matric_no: matric_no.toUpperCase(),
+      matric_number: matric_number.toUpperCase(),
       email: email.toLowerCase(),
       password_hash,
       first_name,
       last_name,
       department,
       level,
-      role: 'student'
+      user_type: 'student'
     }).returning('*');
 
     // Create wallet
     await database.db('wallets').insert({ user_id: user.id, balance: 0, currency: 'NGN' });
 
     const token = generateToken(user);
-    res.status(201).json({ success: true, token, user: { id: user.id, email: user.email, first_name, last_name, matric_no, role: user.role } });
+    res.status(201).json({ success: true, token, user: { id: user.id, email: user.email, first_name, last_name, matric_number, user_type: user.user_type } });
   } catch (err) {
     console.error('[REGISTER ERROR]', err.message);
     res.status(500).json({ success: false, error: err.message });
@@ -84,7 +84,7 @@ router.post('/login', validate(loginSchema), async (req, res) => {
     }
 
     const token = generateToken(user);
-    res.json({ success: true, token, user: { id: user.id, email: user.email, first_name: user.first_name, last_name: user.last_name, matric_no: user.matric_no, role: user.role } });
+    res.json({ success: true, token, user: { id: user.id, email: user.email, first_name: user.first_name, last_name: user.last_name, matric_number: user.matric_number, user_type: user.user_type } });
   } catch (err) {
     console.error('[LOGIN ERROR]', err.message);
     res.status(500).json({ success: false, error: err.message });
@@ -96,7 +96,7 @@ router.get('/me', authenticateJWT, async (req, res) => {
   try {
     const user = await database.db('users').where({ id: req.user.id }).first();
     if (!user) return res.status(404).json({ success: false, error: 'User not found' });
-    res.json({ success: true, user: { id: user.id, email: user.email, first_name: user.first_name, last_name: user.last_name, matric_no: user.matric_no, role: user.role, department: user.department, level: user.level } });
+    res.json({ success: true, user: { id: user.id, email: user.email, first_name: user.first_name, last_name: user.last_name, matric_number: user.matric_number, user_type: user.user_type, department: user.department, level: user.level } });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

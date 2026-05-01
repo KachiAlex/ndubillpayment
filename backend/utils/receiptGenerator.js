@@ -19,7 +19,7 @@ function generateReceiptBuffer(receiptData) {
     doc.moveDown();
 
     doc.text(`Student: ${receiptData.student_name}`);
-    doc.text(`Matric No: ${receiptData.matric_no}`);
+    doc.text(`Matric No: ${receiptData.matric_number}`);
     doc.text(`Department: ${receiptData.department}`);
     doc.text(`Level: ${receiptData.level}`);
     doc.moveDown();

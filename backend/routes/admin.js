@@ -28,7 +28,7 @@ router.get('/transactions', async (req, res) => {
   try {
     const transactions = await database.db('transactions')
       .join('users', 'transactions.user_id', 'users.id')
-      .select('transactions.*', 'users.first_name', 'users.last_name', 'users.matric_no')
+      .select('transactions.*', 'users.first_name', 'users.last_name', 'users.matric_number')
       .orderBy('transactions.created_at', 'desc');
     res.json({ success: true, transactions });
   } catch (err) {
@@ -39,7 +39,7 @@ router.get('/transactions', async (req, res) => {
 // All students
 router.get('/students', async (req, res) => {
   try {
-    const students = await database.db('users').where({ role: 'student' }).select('id', 'matric_no', 'email', 'first_name', 'last_name', 'department', 'level', 'is_verified', 'created_at');
+    const students = await database.db('users').where({ user_type: 'student' }).select('id', 'matric_number', 'email', 'first_name', 'last_name', 'department', 'level', 'is_verified', 'created_at');
     res.json({ success: true, students });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
