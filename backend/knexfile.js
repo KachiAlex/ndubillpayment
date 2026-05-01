@@ -1,8 +1,8 @@
 require('dotenv').config({ path: require('path').join(__dirname, '.env') });
-// Fallback: load parent .env.local if DATABASE_URL is still not set
-if (!process.env.DATABASE_URL) {
-  require('dotenv').config({ path: require('path').join(__dirname, '..', '.env.local') });
-}
+// Load parent .env.local and override any system env vars
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env.local'), override: true });
+
+console.log('[knexfile] DATABASE_URL host:', process.env.DATABASE_URL ? new URL(process.env.DATABASE_URL).hostname : 'NOT SET');
 
 function getConnection() {
   if (process.env.DATABASE_URL) {
