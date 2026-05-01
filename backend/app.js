@@ -57,30 +57,12 @@ app.use(morgan('combined', { stream: { write: message => logger.info(message.tri
 const { db } = require('./utils/database');
 
 // Health check endpoint (match both direct and Vercel-rewritten paths)
-const healthHandler = async (req, res) => {
-  let dbStatus = 'unknown';
-  try {
-    if (db) {
-      // Race DB check against a 5s timeout so a hung connection can't block the response
-      await Promise.race([
-        db.raw('SELECT 1'),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('DB check timed out')), 5000)
-        )
-      ]);
-      dbStatus = 'connected';
-    } else {
-      dbStatus = 'not_initialized';
-    }
-  } catch (err) {
-    dbStatus = 'error: ' + err.message;
-  }
-
+const healthHandler = (req, res) => {
   res.status(200).json({
     status: 'OK',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
-    dbStatus
+    db: db ? 'initialized' : 'not_initialized'
   });
 };
 app.get('/health', healthHandler);

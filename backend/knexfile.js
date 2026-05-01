@@ -10,6 +10,10 @@ function getConnection() {
       if (!url.searchParams.has('sslmode')) {
         url.searchParams.set('sslmode', 'require');
       }
+      // Add connection timeout so pg fails fast instead of hanging
+      if (!url.searchParams.has('connect_timeout')) {
+        url.searchParams.set('connect_timeout', '10');
+      }
       return url.toString();
     } catch {
       return process.env.DATABASE_URL;
