@@ -2,11 +2,17 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 
+console.log('[app] Loading routes...');
 const authRoutes = require('./routes/auth');
+console.log('[app] auth routes loaded');
 const walletRoutes = require('./routes/wallet');
+console.log('[app] wallet routes loaded');
 const adminRoutes = require('./routes/admin');
+console.log('[app] admin routes loaded');
 const webhookRoutes = require('./routes/webhooks');
+console.log('[app] webhook routes loaded');
 const errorHandler = require('./middleware/errorHandler');
+console.log('[app] errorHandler loaded');
 
 const app = express();
 

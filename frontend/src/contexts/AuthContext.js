@@ -12,7 +12,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const apiFetch = async (path, options = {}, timeoutMs = 15000) => {
+  const apiFetch = async (path, options = {}, timeoutMs = 25000) => {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
