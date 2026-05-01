@@ -12,7 +12,7 @@ router.get('/dashboard', async (req, res) => {
   try {
     const [stats] = await database.db.raw(`
       SELECT
-        (SELECT COUNT(*) FROM users WHERE role = 'student') as total_students,
+        (SELECT COUNT(*) FROM users WHERE user_type = 'student') as total_students,
         (SELECT COUNT(*) FROM transactions WHERE status = 'completed') as total_transactions,
         (SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE status = 'completed') as total_revenue,
         (SELECT COUNT(*) FROM transactions WHERE status = 'pending') as pending_payments
