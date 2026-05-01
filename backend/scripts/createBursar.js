@@ -21,7 +21,6 @@ async function createBursar() {
     console.log('Bursar user updated:', user.email);
   } else {
     [user] = await database.db('users').insert({
-      matric_number: 'ADMIN001',
       email: 'bursar@ndu.edu.ng',
       password_hash,
       first_name: 'Bursar',

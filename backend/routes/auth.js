@@ -27,8 +27,16 @@ const loginSchema = Joi.object({
 });
 
 function generateToken(user) {
+  const payload = {
+    id: user.id,
+    email: user.email,
+    user_type: user.user_type,
+    first_name: user.first_name,
+    last_name: user.last_name
+  };
+  if (user.matric_number) payload.matric_number = user.matric_number;
   return jwt.sign(
-    { id: user.id, email: user.email, user_type: user.user_type, first_name: user.first_name, last_name: user.last_name, matric_number: user.matric_number },
+    payload,
     process.env.JWT_SECRET || 'defaultsecret',
     { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
   );
