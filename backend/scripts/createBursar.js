@@ -2,7 +2,7 @@ const bcrypt = require('bcryptjs');
 const database = require('../utils/database');
 
 async function createBursar() {
-  const password_hash = await bcrypt.hash('Admin123!', 10);
+  const password_hash = await bcrypt.hash('busar123', 10);
 
   const existing = await database.db('users').where({ email: 'bursar@ndu.edu.ng' }).first();
 
