@@ -2,19 +2,28 @@ require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 
 function getConnection() {
   if (process.env.DATABASE_URL) {
-    // Strip channel_binding which can hang pg in serverless
-    let url = process.env.DATABASE_URL;
     try {
-      const parsed = new URL(url);
+      const parsed = new URL(process.env.DATABASE_URL);
+      // Strip channel_binding which can hang pg in serverless
       parsed.searchParams.delete('channel_binding');
-      if (!parsed.searchParams.has('sslmode')) {
-        parsed.searchParams.set('sslmode', 'require');
-      }
-      url = parsed.toString();
+      // Force SSL for Neon
+      const sslmode = parsed.searchParams.get('sslmode');
+
+      return {
+        host: parsed.hostname,
+        port: parseInt(parsed.port || '5432', 10),
+        database: parsed.pathname.replace(/^\//, ''),
+        user: decodeURIComponent(parsed.username),
+        password: decodeURIComponent(parsed.password),
+        ssl: sslmode === 'require' || sslmode === 'prefer' ? { rejectUnauthorized: false } : { rejectUnauthorized: false }
+      };
     } catch {
-      // ignore parse errors, use raw string
+      // Fallback: pass as connection string with SSL
+      return {
+        connectionString: process.env.DATABASE_URL,
+        ssl: { rejectUnauthorized: false }
+      };
     }
-    return { connectionString: url, ssl: { rejectUnauthorized: false } };
   }
   return {
     host: process.env.DB_HOST || 'localhost',
