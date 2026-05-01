@@ -19,7 +19,8 @@ function getConnection() {
         database: parsed.pathname.replace(/^\//, ''),
         user: decodeURIComponent(parsed.username),
         password: decodeURIComponent(parsed.password),
-        ssl: sslmode === 'require' || sslmode === 'prefer' ? { rejectUnauthorized: false } : { rejectUnauthorized: false }
+        ssl: sslmode === 'require' || sslmode === 'prefer' ? { rejectUnauthorized: false } : { rejectUnauthorized: false },
+        connectionTimeoutMillis: 8000  // TCP connection timeout (fail fast)
       };
     } catch {
       // Fallback: pass as connection string with SSL
@@ -39,11 +40,19 @@ function getConnection() {
   };
 }
 
+const poolConfig = {
+  min: 0,
+  max: 1,                        // Serverless: only 1 connection per invocation
+  acquireTimeoutMillis: 8000,    // Fail fast if pool is exhausted
+  createTimeoutMillis: 8000,     // Fail fast if new connection can't be created
+  idleTimeoutMillis: 500         // Close idle connections quickly (serverless friendly)
+};
+
 module.exports = {
   development: {
     client: 'postgresql',
     connection: getConnection(),
-    pool: { min: 0, max: 5 },
+    pool: poolConfig,
     migrations: {
       directory: './database/migrations'
     },
@@ -54,7 +63,7 @@ module.exports = {
   production: {
     client: 'postgresql',
     connection: getConnection(),
-    pool: { min: 0, max: 5 },
+    pool: poolConfig,
     migrations: {
       directory: './database/migrations'
     },
