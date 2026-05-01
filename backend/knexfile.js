@@ -2,8 +2,18 @@ require('dotenv').config();
 
 function getConnection() {
   if (process.env.DATABASE_URL) {
-    // Pass URL directly — pg driver parses sslmode, channel_binding, etc.
-    return process.env.DATABASE_URL;
+    try {
+      const url = new URL(process.env.DATABASE_URL);
+      // channel_binding can hang the pure-JS pg driver in serverless environments
+      url.searchParams.delete('channel_binding');
+      // Ensure SSL is required for Neon
+      if (!url.searchParams.has('sslmode')) {
+        url.searchParams.set('sslmode', 'require');
+      }
+      return url.toString();
+    } catch {
+      return process.env.DATABASE_URL;
+    }
   }
   return {
     host: process.env.DB_HOST || 'localhost',
@@ -28,6 +38,7 @@ const poolConfig = {
   min: 0,
   max: 5,
   acquireTimeoutMillis: 8000,
+  createTimeoutMillis: 8000,
   idleTimeoutMillis: 30000
 };
 
