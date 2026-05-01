@@ -1,4 +1,8 @@
 require('dotenv').config({ path: require('path').join(__dirname, '.env') });
+// Fallback: load parent .env.local if DATABASE_URL is still not set
+if (!process.env.DATABASE_URL) {
+  require('dotenv').config({ path: require('path').join(__dirname, '..', '.env.local') });
+}
 
 function getConnection() {
   if (process.env.DATABASE_URL) {
