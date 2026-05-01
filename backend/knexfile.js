@@ -15,10 +15,27 @@ function getConnection() {
   };
 }
 
+function validateEnv() {
+  if (process.env.NODE_ENV === 'production' && !process.env.DATABASE_URL) {
+    console.error('FATAL: DATABASE_URL environment variable is required in production');
+    throw new Error('DATABASE_URL is required');
+  }
+}
+
+validateEnv();
+
+const poolConfig = {
+  min: 0,
+  max: 5,
+  acquireTimeoutMillis: 8000,
+  idleTimeoutMillis: 30000
+};
+
 module.exports = {
   development: {
     client: 'postgresql',
     connection: getConnection(),
+    pool: poolConfig,
     migrations: {
       directory: './database/migrations'
     },
@@ -30,6 +47,7 @@ module.exports = {
   staging: {
     client: 'postgresql',
     connection: getConnection(),
+    pool: poolConfig,
     migrations: {
       directory: './database/migrations'
     },
@@ -41,6 +59,7 @@ module.exports = {
   production: {
     client: 'postgresql',
     connection: getConnection(),
+    pool: poolConfig,
     migrations: {
       directory: './database/migrations'
     },
