@@ -14,21 +14,30 @@ const logger = require('./utils/logger');
 
 const app = express();
 
+// Trust proxy headers in serverless/Vercel so req.ip is populated
+app.set('trust proxy', 1);
+
 // Security middleware
 app.use(helmet());
 app.use(compression());
 
 // Request path logging (visible in Vercel function logs)
 app.use((req, res, next) => {
-  console.log(`[API] ${req.method} ${req.url}`);
+  console.log(`[API] ${req.method} ${req.url} ip=${req.ip || 'unknown'}`);
   next();
 });
 
-// Rate limiting
+// Rate limiting — configured for serverless (skip strict IP validation)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
-  message: 'Too many requests from this IP, please try again later.'
+  message: 'Too many requests, please try again later.',
+  validate: {
+    trustProxy: false,
+    xForwardedForHeader: false,
+    ip: false
+  },
+  keyGenerator: (req) => req.ip || req.headers['x-forwarded-for'] || 'global'
 });
 app.use(limiter);
 
