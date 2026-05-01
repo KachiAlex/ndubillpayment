@@ -14,6 +14,7 @@ async function createBursar() {
       last_name: 'Admin',
       department: 'Finance',
       level: 'Staff',
+      session: '2023/2024',
       user_type: 'bursar',
       is_verified: true
     }).returning('*');
@@ -27,6 +28,7 @@ async function createBursar() {
       last_name: 'Admin',
       department: 'Finance',
       level: 'Staff',
+      session: '2023/2024',
       user_type: 'bursar',
       is_verified: true
     }).returning('*');

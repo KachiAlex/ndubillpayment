@@ -17,7 +17,8 @@ const registerSchema = Joi.object({
   first_name: Joi.string().required(),
   last_name: Joi.string().required(),
   department: Joi.string().required(),
-  level: Joi.string().required()
+  level: Joi.string().required(),
+  session: Joi.string().required()
 });
 
 const loginSchema = Joi.object({
@@ -36,7 +37,7 @@ function generateToken(user) {
 // Register
 router.post('/register', validate(registerSchema), async (req, res) => {
   try {
-    const { matric_number, email, password, first_name, last_name, department, level } = req.body;
+    const { matric_number, email, password, first_name, last_name, department, level, session } = req.body;
 
     // Check existing user
     const existing = await database.db('users').where({ email }).orWhere({ matric_number }).first();
@@ -54,6 +55,7 @@ router.post('/register', validate(registerSchema), async (req, res) => {
       last_name,
       department,
       level,
+      session,
       user_type: 'student'
     }).returning('*');
 
@@ -61,7 +63,7 @@ router.post('/register', validate(registerSchema), async (req, res) => {
     await database.db('wallets').insert({ user_id: user.id, balance: 0, currency: 'NGN' });
 
     const token = generateToken(user);
-    res.status(201).json({ success: true, token, user: { id: user.id, email: user.email, first_name, last_name, matric_number, user_type: user.user_type } });
+    res.status(201).json({ success: true, token, user: { id: user.id, email: user.email, first_name, last_name, matric_number, session, user_type: user.user_type } });
   } catch (err) {
     console.error('[REGISTER ERROR]', err.message);
     res.status(500).json({ success: false, error: err.message });
