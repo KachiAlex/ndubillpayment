@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from 'react-query';
 import { toast } from 'react-toastify';
 import { getReports, getUsers, getTransactions, exportToExcel, exportToCSV, reconcilePayments, searchStudentPayments, downloadReceipt, exportPaidStudentsToExcel, exportPaidStudentsToCSV } from '../api/admin';
@@ -28,6 +28,18 @@ const AdminDashboard = () => {
   const [feesLoading, setFeesLoading] = useState(false);
   const [feeForm, setFeeForm] = useState({ name: '', amount: '', department: '', level: '', academic_session: '' });
   const [editingFeeId, setEditingFeeId] = useState(null);
+
+  // Auto-load fees when fees tab is active
+  useEffect(() => {
+    if (activeTab === 'fees' && feesData.length === 0 && !feesLoading) {
+      setFeesLoading(true);
+      getAllFees()
+        .then(d => setFeesData(d.fees || []))
+        .catch(() => toast.error('Failed to load fees'))
+        .finally(() => setFeesLoading(false));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   // Fetch reports data
   const { data: reportsData, isLoading: reportsLoading, refetch: refetchReports } = useQuery(
