@@ -134,8 +134,9 @@ const StudentDashboard = () => {
     setPayingFeeId(feeId);
     try {
       const result = await payFee(feeId);
+      const paidAmount = result.transaction?.amount || result.fee_payment?.amount_paid;
       notificationService.showNotification('Payment Successful ✅', {
-        body: `Paid ₦${Number(result.new_balance).toLocaleString()} for ${feeName}`
+        body: `Paid ₦${Number(paidAmount).toLocaleString()} for ${feeName}. Remaining balance: ₦${Number(result.new_balance).toLocaleString()}`
       });
       window.location.reload();
     } catch (error) {
