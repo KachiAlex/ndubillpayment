@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from 'react-query';
 import { apiFetch } from '../api/config';
-import { getApplicableFees, payFee, getFeePayments } from '../api/fees';
+import { getApplicableFees, payFee } from '../api/fees';
 import notificationService from '../services/notificationService';
 import qrCodeService from '../services/qrCodeService';
 import biometricService from '../services/biometricService';
