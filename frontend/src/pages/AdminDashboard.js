@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQuery } from 'react-query';
 import { toast } from 'react-toastify';
 import { getReports, getUsers, getTransactions, exportToExcel, exportToCSV, reconcilePayments, searchStudentPayments, downloadReceipt, exportPaidStudentsToExcel, exportPaidStudentsToCSV } from '../api/admin';
+import { getAllFees, createFee, updateFee, deleteFee } from '../api/fees';
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -23,6 +24,10 @@ const AdminDashboard = () => {
   });
   const [searchResults, setSearchResults] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [feesData, setFeesData] = useState([]);
+  const [feesLoading, setFeesLoading] = useState(false);
+  const [feeForm, setFeeForm] = useState({ name: '', amount: '', department: '', level: '', academic_session: '' });
+  const [editingFeeId, setEditingFeeId] = useState(null);
 
   // Fetch reports data
   const { data: reportsData, isLoading: reportsLoading, refetch: refetchReports } = useQuery(
@@ -171,8 +176,9 @@ const AdminDashboard = () => {
             { key: 'reports', label: 'Reports' },
             { key: 'users', label: 'Users' },
             { key: 'transactions', label: 'Transactions' },
-            { key: 'search', label: 'Search Student' },
-            { key: 'reconcile', label: 'Reconcile' }
+            { key: 'fees', label: 'Fees' },
+            { key: 'search', label: 'Search' },
+            { key: 'reconcile', label: 'Reconcile' },
           ].map(tab => (
             <button
               key={tab.key}
@@ -719,7 +725,70 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {/* Reconcile Tab */}
+      {/* Fees Tab */}
+      {activeTab === 'fees' && (
+        <div className="space-y-6">
+          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">{editingFeeId ? 'Edit Fee' : 'Create Fee'}</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <input placeholder="Fee name" value={feeForm.name} onChange={e => setFeeForm(p => ({ ...p, name: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              <input placeholder="Amount (₦)" type="number" value={feeForm.amount} onChange={e => setFeeForm(p => ({ ...p, amount: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              <input placeholder="Department (optional)" value={feeForm.department} onChange={e => setFeeForm(p => ({ ...p, department: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              <input placeholder="Level (e.g., 100, 200)" value={feeForm.level} onChange={e => setFeeForm(p => ({ ...p, level: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              <input placeholder="Academic session (e.g., 2024/2025)" value={feeForm.academic_session} onChange={e => setFeeForm(p => ({ ...p, academic_session: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+            </div>
+            <button
+              onClick={async () => {
+                try {
+                  if (editingFeeId) {
+                    await updateFee(editingFeeId, feeForm);
+                    toast.success('Fee updated');
+                  } else {
+                    await createFee(feeForm);
+                    toast.success('Fee created');
+                  }
+                  setFeeForm({ name: '', amount: '', department: '', level: '', academic_session: '' });
+                  setEditingFeeId(null);
+                  const d = await getAllFees();
+                  setFeesData(d.fees || []);
+                } catch (err) {
+                  toast.error(err.message || 'Failed to save fee');
+                }
+              }}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold"
+            >
+              {editingFeeId ? 'Update Fee' : 'Create Fee'}
+            </button>
+          </div>
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">Configured Fees</h3>
+              <button onClick={async () => { setFeesLoading(true); try { const d = await getAllFees(); setFeesData(d.fees || []); } finally { setFeesLoading(false); } }} className="text-sm text-blue-600 hover:text-blue-700">Refresh</button>
+            </div>
+            {feesLoading ? (
+              <div className="px-6 py-10 text-center text-gray-500">Loading…</div>
+            ) : feesData.length === 0 ? (
+              <div className="px-6 py-10 text-center text-gray-500">No fees configured yet</div>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {feesData.map(fee => (
+                  <div key={fee.id} className="px-6 py-4 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{fee.name}</p>
+                      <p className="text-xs text-gray-500">₦{Number(fee.amount).toLocaleString()} · {fee.academic_session} {fee.department ? `· ${fee.department}` : ''} {fee.level ? `· ${fee.level}` : ''}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => { setFeeForm({ name: fee.name, amount: fee.amount, department: fee.department || '', level: fee.level || '', academic_session: fee.academic_session }); setEditingFeeId(fee.id); }} className="text-xs px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition">Edit</button>
+                      <button onClick={async () => { if (window.confirm('Delete this fee?')) { try { await deleteFee(fee.id); const d = await getAllFees(); setFeesData(d.fees || []); toast.success('Fee deleted'); } catch (err) { toast.error('Failed to delete'); } } }} className="text-xs px-3 py-1.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition">Delete</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {activeTab === 'reconcile' && (
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Reconciliation</h3>
