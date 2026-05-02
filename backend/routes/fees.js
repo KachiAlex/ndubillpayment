@@ -149,18 +149,14 @@ router.post('/:id/pay', authenticateJWT, authorizeRoles('student'), async (req, 
 
     // Create transaction record
     const [transaction] = await trx('transactions').insert({
-      id: uuidv4(),
       user_id: req.user.id,
-      wallet_id: wallet.id,
-      reference,
-      type: 'fee_payment',
+      tx_ref: reference,
+      type: 'payment',
       status: 'completed',
       amount: fee.amount,
-      fee: 0,
       currency: 'NGN',
       description: `Payment for ${fee.name} (${fee.academic_session})`,
-      payment_method: 'wallet',
-      paid_at: new Date()
+      payment_method: 'wallet'
     }).returning('*');
 
     // Create fee payment record
