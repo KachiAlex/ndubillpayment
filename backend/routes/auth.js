@@ -81,23 +81,32 @@ router.post('/register', validate(registerSchema), async (req, res) => {
 // Login
 router.post('/login', validate(loginSchema), async (req, res) => {
   try {
+    if (!database.db) {
+      console.error('[LOGIN ERROR] Database not initialized');
+      return res.status(503).json({ success: false, error: 'Database unavailable' });
+    }
+
     const { email, password } = req.body;
+    console.log('[LOGIN] Attempting login for:', email);
 
     const user = await database.db('users').where({ email: email.toLowerCase() }).first();
     if (!user) {
+      console.log('[LOGIN] User not found:', email);
       return res.status(401).json({ success: false, error: 'Invalid email or password' });
     }
 
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) {
+      console.log('[LOGIN] Invalid password for:', email);
       return res.status(401).json({ success: false, error: 'Invalid email or password' });
     }
 
     const token = generateToken(user);
+    console.log('[LOGIN] Success for:', email);
     res.json({ success: true, token, user: { id: user.id, email: user.email, first_name: user.first_name, last_name: user.last_name, matric_number: user.matric_number, user_type: user.user_type } });
   } catch (err) {
-    console.error('[LOGIN ERROR]', err.message);
-    res.status(500).json({ success: false, error: err.message });
+    console.error('[LOGIN ERROR]', err.message, err.stack);
+    res.status(500).json({ success: false, error: 'Login failed. Please try again.' });
   }
 });
 
