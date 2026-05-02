@@ -72,7 +72,7 @@ const Landing = () => {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative bg-cover bg-center bg-no-repeat" style={{backgroundImage: 'url(/images/hero-bg.jpg)'}}>
+      <section className="relative bg-cover bg-center bg-no-repeat" style={{backgroundImage: 'url(/hero-bg.png)'}}>
         <div className="absolute inset-0 bg-blue-900/60" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 md:py-24">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
