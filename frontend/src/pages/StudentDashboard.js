@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { apiFetch } from '../api/config';
-import { getApplicableFees, payFee } from '../api/fees';
+import { getApplicableFees, payFee, getFeeHistory } from '../api/fees';
 import notificationService from '../services/notificationService';
 import qrCodeService from '../services/qrCodeService';
 import biometricService from '../services/biometricService';
 import NotificationSettings from '../components/NotificationSettings';
+import { FeeCardSkeleton } from '../components/LoadingSkeleton';
 
 const useWallet = () => {
   return useQuery(['wallet-balance'], async () => {
@@ -40,12 +41,58 @@ const StudentDashboard = () => {
   const { data: wallet, isLoading: loadingBal } = useWallet();
   const { data: txs, isLoading: loadingTx } = useRecentTx();
   const { data: fees, isLoading: loadingFees } = useFees();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('overview');
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricRegistered, setBiometricRegistered] = useState(false);
   const [qrCodeDataURL, setQrCodeDataURL] = useState(null);
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
-  const [payingFeeId, setPayingFeeId] = useState(null);
+  const [paymentDialog, setPaymentDialog] = useState({ open: false, fee: null, amount: '' });
+  const [expandedFeeId, setExpandedFeeId] = useState(null);
+
+  // Optimistic mutation for fee payments
+  const payFeeMutation = useMutation(
+    ({ feeId, amount }) => payFee(feeId, { amount }),
+    {
+      onMutate: async (variables) => {
+        await queryClient.cancelQueries(['applicable-fees']);
+        const previousFees = queryClient.getQueryData(['applicable-fees']);
+        
+        queryClient.setQueryData(['applicable-fees'], (old) => {
+          if (!old || !Array.isArray(old)) return old;
+          return old.map(fee => {
+            if (fee.id === variables.feeId) {
+              const newAmountPaid = Number(fee.amount_paid) + Number(variables.amount);
+              const newRemaining = Number(fee.total_amount) - newAmountPaid;
+              return {
+                ...fee,
+                amount_paid: newAmountPaid,
+                remaining_balance: Math.max(0, newRemaining),
+                status: newRemaining <= 0 ? 'completed' : 'partial',
+                is_paid: newRemaining <= 0
+              };
+            }
+            return fee;
+          });
+        });
+        
+        return { previousFees };
+      },
+      onError: (err, variables, context) => {
+        queryClient.setQueryData(['applicable-fees'], context.previousFees);
+        notificationService.showNotification('Payment Failed ❌', {
+          body: err.message || 'Could not pay fee from wallet'
+        });
+      },
+      onSuccess: (data, variables) => {
+        queryClient.invalidateQueries(['applicable-fees']);
+        queryClient.invalidateQueries(['wallet-balance']);
+        notificationService.showNotification('Payment Successful ✅', {
+          body: `Paid ₦${Number(data.amount_paid).toLocaleString()}`
+        });
+      }
+    }
+  );
 
   const walletBalanceNgn = wallet?.balance ?? 0;
   const recentTx = Array.isArray(txs) ? txs : [];
@@ -130,23 +177,38 @@ const StudentDashboard = () => {
     }
   };
 
-  const handlePayFee = async (feeId, feeName) => {
-    setPayingFeeId(feeId);
+  const handlePayFee = async (feeId, feeName, amount) => {
     try {
-      const result = await payFee(feeId);
-      const paidAmount = result.transaction?.amount || result.fee_payment?.amount_paid;
-      notificationService.showNotification('Payment Successful ✅', {
-        body: `Paid ₦${Number(paidAmount).toLocaleString()} for ${feeName}. Remaining balance: ₦${Number(result.new_balance).toLocaleString()}`
-      });
-      window.location.reload();
+      await payFeeMutation.mutateAsync({ feeId, amount });
+      setPaymentDialog({ open: false, fee: null, amount: '' });
     } catch (error) {
-      notificationService.showNotification('Payment Failed ❌', {
-        body: error.message || 'Could not pay fee from wallet'
-      });
-    } finally {
-      setPayingFeeId(null);
+      console.error('Payment error:', error);
     }
   };
+
+  const openPaymentDialog = (fee) => {
+    setPaymentDialog({
+      open: true,
+      fee,
+      amount: fee.remaining_balance || fee.amount
+    });
+  };
+
+  const toggleFeeHistory = async (feeId) => {
+    if (expandedFeeId === feeId) {
+      setExpandedFeeId(null);
+    } else {
+      setExpandedFeeId(feeId);
+    }
+  };
+
+  const { data: feeHistory, isLoading: loadingHistory } = useQuery(
+    ['fee-history', expandedFeeId],
+    () => getFeeHistory(expandedFeeId),
+    {
+      enabled: !!expandedFeeId,
+    }
+  );
 
   return (
     <div className="space-y-8">
@@ -391,7 +453,11 @@ const StudentDashboard = () => {
               <div className="text-sm text-gray-500">Wallet: ₦{walletBalanceNgn.toLocaleString()}</div>
             </div>
             {loadingFees ? (
-              <div className="text-center py-10 text-gray-500">Loading…</div>
+              <div className="space-y-4">
+                <FeeCardSkeleton />
+                <FeeCardSkeleton />
+                <FeeCardSkeleton />
+              </div>
             ) : !Array.isArray(fees) || fees.length === 0 ? (
               <div className="text-center py-10 text-gray-500">No fees available for your department/level</div>
             ) : (
@@ -436,21 +502,96 @@ const StudentDashboard = () => {
                         }`}>
                           {fee.status === 'completed' ? 'Paid' : fee.status === 'partial' ? 'Partial' : 'Pending'}
                         </span>
-                        {!fee.is_paid && fee.remaining_balance > 0 && (
+                        <div className="flex gap-2">
                           <button
-                            onClick={() => handlePayFee(fee.id, fee.name)}
-                            disabled={payingFeeId === fee.id || walletBalanceNgn < fee.remaining_balance}
-                            className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                            onClick={() => toggleFeeHistory(fee.id)}
+                            className="px-3 py-1.5 text-xs bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
                           >
-                            {payingFeeId === fee.id ? 'Processing…' : `Pay ₦${Number(fee.remaining_balance).toLocaleString()}`}
+                            {expandedFeeId === fee.id ? 'Hide' : 'History'}
                           </button>
-                        )}
+                          {!fee.is_paid && fee.remaining_balance > 0 && (
+                            <button
+                              onClick={() => openPaymentDialog(fee)}
+                              disabled={walletBalanceNgn < fee.remaining_balance}
+                              className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                            >
+                              Pay
+                            </button>
+                          )}
+                        </div>
                       </div>
+                      {expandedFeeId === fee.id && (
+                        <div className="mt-4 pt-4 border-t border-gray-100">
+                          <p className="text-xs font-medium text-gray-700 mb-2">Payment History</p>
+                          {loadingHistory ? (
+                            <div className="text-xs text-gray-500">Loading...</div>
+                          ) : !feeHistory || !feeHistory.transactions || feeHistory.transactions.length === 0 ? (
+                            <div className="text-xs text-gray-500">No payment history</div>
+                          ) : (
+                            <div className="space-y-2">
+                              {feeHistory.transactions.map(tx => (
+                                <div key={tx.id} className="flex justify-between text-xs">
+                                  <span className="text-gray-600">{new Date(tx.created_at).toLocaleDateString()}</span>
+                                  <span className="font-medium">₦{Number(tx.amount).toLocaleString()}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Payment Dialog */}
+      {paymentDialog.open && paymentDialog.fee && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Pay Fee</h3>
+            <div className="mb-4">
+              <p className="text-sm text-gray-600">{paymentDialog.fee.name}</p>
+              <p className="text-xs text-gray-500">{paymentDialog.fee.academic_session}</p>
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Amount to Pay (₦)</label>
+              <input
+                type="number"
+                min="1"
+                max={paymentDialog.fee.remaining_balance}
+                value={paymentDialog.amount}
+                onChange={(e) => setPaymentDialog({ ...paymentDialog, amount: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Remaining balance: ₦{Number(paymentDialog.fee.remaining_balance).toLocaleString()}
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setPaymentDialog({ open: false, fee: null, amount: '' })}
+                className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handlePayFee(paymentDialog.fee.id, paymentDialog.fee.name, paymentDialog.amount)}
+                disabled={
+                  payFeeMutation.isLoading ||
+                  !paymentDialog.amount ||
+                  Number(paymentDialog.amount) <= 0 ||
+                  Number(paymentDialog.amount) > Number(paymentDialog.fee.remaining_balance) ||
+                  walletBalanceNgn < Number(paymentDialog.amount)
+                }
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+              >
+                {payFeeMutation.isLoading ? 'Processing…' : 'Pay'}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -2,6 +2,7 @@ const express = require('express');
 const database = require('../utils/database');
 const { authenticateJWT, authorizeRoles } = require('../middleware/auth');
 const { v4: uuidv4 } = require('uuid');
+const PDFDocument = require('pdfkit');
 
 const router = express.Router();
 
@@ -255,6 +256,72 @@ router.post('/:id/pay', authenticateJWT, authorizeRoles('student'), async (req, 
   } catch (err) {
     await trx.rollback();
     console.error('[fees] pay error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ── STUDENT: Download receipt for fee payment ──
+router.get('/payments/:paymentId/receipt', authenticateJWT, authorizeRoles('student'), async (req, res) => {
+  try {
+    const payment = await database.db('fee_payments')
+      .join('fees', 'fee_payments.fee_id', 'fees.id')
+      .join('users', 'fee_payments.user_id', 'users.id')
+      .where('fee_payments.id', req.params.paymentId)
+      .where('fee_payments.user_id', req.user.id)
+      .select('fee_payments.*', 'fees.name as fee_name', 'fees.academic_session', 'users.first_name', 'users.last_name', 'users.matric_number')
+      .first();
+
+    if (!payment) {
+      return res.status(404).json({ success: false, error: 'Payment not found' });
+    }
+
+    // Generate PDF
+    const doc = new PDFDocument({ size: 'A4', margin: 50 });
+    const chunks = [];
+    doc.on('data', chunk => chunks.push(chunk));
+
+    doc.fontSize(20).text('NDU Tuition Payment Receipt', { align: 'center' });
+    doc.moveDown();
+    doc.fontSize(12).text(`Receipt No: ${payment.reference}`);
+    doc.text(`Date: ${new Date(payment.created_at).toLocaleDateString()}`);
+    doc.moveDown();
+    doc.fontSize(14).text(`Student: ${payment.first_name} ${payment.last_name}`);
+    doc.text(`Matric No: ${payment.matric_number}`);
+    doc.moveDown();
+    doc.text(`Fee: ${payment.fee_name}`);
+    doc.text(`Academic Session: ${payment.academic_session}`);
+    doc.moveDown();
+    doc.fontSize(14).text(`Amount Paid: ₦${Number(payment.amount_paid).toLocaleString()}`);
+    doc.text(`Total Amount: ₦${Number(payment.total_amount).toLocaleString()}`);
+    doc.text(`Remaining Balance: ₦${Number(payment.remaining_balance).toLocaleString()}`);
+    doc.moveDown();
+    doc.text(`Status: ${payment.status.toUpperCase()}`);
+
+    doc.end();
+
+    const pdfBuffer = Buffer.concat(chunks);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="receipt-${payment.reference}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('[fees] receipt error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ── STUDENT: Get payment history for a specific fee ──
+router.get('/:feeId/history', authenticateJWT, authorizeRoles('student'), async (req, res) => {
+  try {
+    const transactions = await database.db('transactions')
+      .join('fee_payments', 'transactions.id', 'fee_payments.transaction_id')
+      .where('fee_payments.fee_id', req.params.feeId)
+      .where('fee_payments.user_id', req.user.id)
+      .select('transactions.*')
+      .orderBy('transactions.created_at', 'desc');
+
+    res.json({ success: true, transactions });
+  } catch (err) {
+    console.error('[fees] history error:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });

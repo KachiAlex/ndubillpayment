@@ -15,6 +15,10 @@ const feeRoutes = require('./routes/fees');
 console.log('[app] fee routes loaded');
 const errorHandler = require('./middleware/errorHandler');
 console.log('[app] errorHandler loaded');
+const requestLogger = require('./middleware/requestLogger');
+console.log('[app] requestLogger loaded');
+const { generalLimiter, authLimiter, paymentLimiter } = require('./middleware/rateLimit');
+console.log('[app] rate limiters loaded');
 
 const app = express();
 
@@ -25,16 +29,13 @@ app.use(cors({
   credentials: true
 }));
 
+// Rate limiting
+app.use(generalLimiter);
+
 // Parse JSON except for raw webhook body
 app.use((req, res, next) => {
   if (req.path === '/api/webhooks/flutterwave') return next();
   express.json({ limit: '10mb' })(req, res, next);
-});
-
-// Simple console logging (works in Vercel)
-app.use((req, res, next) => {
-  console.log(`[API] ${req.method} ${req.url}`);
-  next();
 });
 
 // Health check
@@ -46,11 +47,11 @@ app.get('/api/health', (req, res) => {
 });
 
 // Routes
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/webhooks', webhookRoutes);
-app.use('/api/fees', feeRoutes);
+app.use('/api/fees', paymentLimiter, feeRoutes);
 
 // 404
 app.use('*', (req, res) => {

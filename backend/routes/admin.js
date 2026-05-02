@@ -23,14 +23,35 @@ router.get('/dashboard', async (req, res) => {
   }
 });
 
-// All transactions
+// All transactions with pagination
 router.get('/transactions', async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+
     const transactions = await database.db('transactions')
       .join('users', 'transactions.user_id', 'users.id')
       .select('transactions.*', 'users.first_name', 'users.last_name', 'users.matric_number')
-      .orderBy('transactions.created_at', 'desc');
-    res.json({ success: true, transactions });
+      .orderBy('transactions.created_at', 'desc')
+      .limit(limit)
+      .offset(offset);
+
+    const totalCount = await database.db('transactions').count('* as count').first();
+    const totalPages = Math.ceil(totalCount.count / limit);
+
+    res.json({
+      success: true,
+      transactions,
+      pagination: {
+        page,
+        limit,
+        total: totalCount.count,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      }
+    });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
