@@ -82,16 +82,37 @@ router.get('/', authenticateJWT, authorizeRoles('student'), async (req, res) => 
 
     const fees = await query;
 
-    // Check which fees student has already paid
-    const paid = await database.db('fee_payments')
-      .where({ user_id: req.user.id, status: 'completed' })
-      .select('fee_id');
-    const paidIds = new Set(paid.map(p => p.fee_id));
+    // Get payment progress for each fee
+    const payments = await database.db('fee_payments')
+      .where({ user_id: req.user.id })
+      .select('fee_id', 'amount_paid', 'total_amount', 'remaining_balance', 'status');
 
-    const enriched = fees.map(f => ({
-      ...f,
-      is_paid: paidIds.has(f.id)
-    }));
+    const paymentMap = new Map();
+    payments.forEach(p => {
+      paymentMap.set(p.fee_id, p);
+    });
+
+    const enriched = fees.map(f => {
+      const payment = paymentMap.get(f.id);
+      if (!payment) {
+        return {
+          ...f,
+          amount_paid: 0,
+          total_amount: parseFloat(f.amount),
+          remaining_balance: parseFloat(f.amount),
+          status: 'pending',
+          is_paid: false
+        };
+      }
+      return {
+        ...f,
+        amount_paid: parseFloat(payment.amount_paid),
+        total_amount: parseFloat(payment.total_amount) || parseFloat(f.amount),
+        remaining_balance: parseFloat(payment.remaining_balance),
+        status: payment.status,
+        is_paid: payment.status === 'completed'
+      };
+    });
 
     res.json({ success: true, fees: enriched });
   } catch (err) {
@@ -100,10 +121,13 @@ router.get('/', authenticateJWT, authorizeRoles('student'), async (req, res) => 
   }
 });
 
-// ── STUDENT: Pay a fee from wallet ──
+// ── STUDENT: Pay a fee from wallet (supports partial payments) ──
 router.post('/:id/pay', authenticateJWT, authorizeRoles('student'), async (req, res) => {
   const trx = await database.db.transaction();
   try {
+    const { amount } = req.body;
+    const paymentAmount = parseFloat(amount) || parseFloat(req.query.amount) || 0;
+
     const fee = await trx('fees').where({ id: req.params.id, is_active: true }).first();
     if (!fee) {
       await trx.rollback();
@@ -121,30 +145,52 @@ router.post('/:id/pay', authenticateJWT, authorizeRoles('student'), async (req, 
       return res.status(403).json({ success: false, error: 'This fee is not applicable to your level' });
     }
 
+    // Check existing payment record
+    const existingPayment = await trx('fee_payments')
+      .where({ user_id: req.user.id, fee_id: fee.id })
+      .first();
+
+    const totalAmount = parseFloat(fee.amount);
+    let amountToPay = paymentAmount;
+
+    // If no existing payment, default to full amount
+    if (!existingPayment) {
+      amountToPay = paymentAmount > 0 ? paymentAmount : totalAmount;
+    } else {
+      // If existing payment, check remaining balance
+      const remaining = parseFloat(existingPayment.remaining_balance);
+      if (remaining <= 0) {
+        await trx.rollback();
+        return res.status(400).json({ success: false, error: 'This fee is already fully paid' });
+      }
+      // Default to remaining balance if no amount specified
+      amountToPay = paymentAmount > 0 ? paymentAmount : remaining;
+      // Cap at remaining balance
+      if (amountToPay > remaining) {
+        amountToPay = remaining;
+      }
+    }
+
+    if (amountToPay <= 0) {
+      await trx.rollback();
+      return res.status(400).json({ success: false, error: 'Invalid payment amount' });
+    }
+
     // Check wallet balance
     const wallet = await trx('wallets').where({ user_id: req.user.id }).first();
     if (!wallet) {
       await trx.rollback();
       return res.status(400).json({ success: false, error: 'Wallet not found' });
     }
-    if (parseFloat(wallet.balance) < parseFloat(fee.amount)) {
+    if (parseFloat(wallet.balance) < amountToPay) {
       await trx.rollback();
       return res.status(400).json({ success: false, error: 'Insufficient wallet balance' });
-    }
-
-    // Check already paid
-    const existing = await trx('fee_payments')
-      .where({ user_id: req.user.id, fee_id: fee.id, status: 'completed' })
-      .first();
-    if (existing) {
-      await trx.rollback();
-      return res.status(400).json({ success: false, error: 'You have already paid this fee' });
     }
 
     const reference = `FEE-${Date.now()}-${req.user.id.slice(0, 8)}`;
 
     // Deduct wallet
-    const newBalance = parseFloat(wallet.balance) - parseFloat(fee.amount);
+    const newBalance = parseFloat(wallet.balance) - amountToPay;
     await trx('wallets').where({ id: wallet.id }).update({ balance: newBalance });
 
     // Create transaction record
@@ -153,29 +199,56 @@ router.post('/:id/pay', authenticateJWT, authorizeRoles('student'), async (req, 
       tx_ref: reference,
       type: 'payment',
       status: 'completed',
-      amount: fee.amount,
+      amount: amountToPay,
       currency: 'NGN',
       description: `Payment for ${fee.name} (${fee.academic_session})`,
       payment_method: 'wallet'
     }).returning('*');
 
-    // Create fee payment record
-    const [feePayment] = await trx('fee_payments').insert({
-      id: uuidv4(),
-      user_id: req.user.id,
-      fee_id: fee.id,
-      amount_paid: fee.amount,
-      status: 'completed',
-      transaction_id: transaction.id,
-      reference
-    }).returning('*');
+    // Create or update fee payment record
+    let feePayment;
+    if (existingPayment) {
+      // Update existing payment
+      const newAmountPaid = parseFloat(existingPayment.amount_paid) + amountToPay;
+      const newRemaining = totalAmount - newAmountPaid;
+      const newStatus = newRemaining <= 0 ? 'completed' : (newAmountPaid > 0 ? 'partial' : 'pending');
+
+      [feePayment] = await trx('fee_payments')
+        .where({ id: existingPayment.id })
+        .update({
+          amount_paid: newAmountPaid,
+          remaining_balance: newRemaining,
+          status: newStatus
+        })
+        .returning('*');
+    } else {
+      // Create new payment record
+      const newAmountPaid = amountToPay;
+      const newRemaining = totalAmount - newAmountPaid;
+      const newStatus = newRemaining <= 0 ? 'completed' : 'partial';
+
+      [feePayment] = await trx('fee_payments').insert({
+        id: uuidv4(),
+        user_id: req.user.id,
+        fee_id: fee.id,
+        amount_paid: newAmountPaid,
+        total_amount: totalAmount,
+        remaining_balance: newRemaining,
+        status: newStatus,
+        reference
+      }).returning('*');
+    }
 
     await trx.commit();
 
     res.json({
       success: true,
-      message: `Paid ₦${fee.amount} for ${fee.name}`,
+      message: `Paid ₦${amountToPay} for ${fee.name}`,
       new_balance: newBalance,
+      amount_paid: amountToPay,
+      total_amount: totalAmount,
+      remaining_balance: feePayment.remaining_balance,
+      status: feePayment.status,
       transaction,
       fee_payment: feePayment
     });

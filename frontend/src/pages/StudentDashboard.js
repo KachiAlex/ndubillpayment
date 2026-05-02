@@ -396,32 +396,59 @@ const StudentDashboard = () => {
               <div className="text-center py-10 text-gray-500">No fees available for your department/level</div>
             ) : (
               <div className="divide-y divide-gray-100">
-                {fees.map(fee => (
-                  <div key={fee.id} className="py-4 flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{fee.name}</p>
-                      <p className="text-xs text-gray-500">
-                        {fee.academic_session}
-                        {fee.department && ` · ${fee.department}`}
-                        {fee.level && ` · ${fee.level}`}
-                      </p>
+                {fees.map(fee => {
+                  const progressPercent = fee.total_amount > 0 ? (fee.amount_paid / fee.total_amount) * 100 : 0;
+                  return (
+                    <div key={fee.id} className="py-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{fee.name}</p>
+                          <p className="text-xs text-gray-500">
+                            {fee.academic_session}
+                            {fee.department && ` · ${fee.department}`}
+                            {fee.level && ` · ${fee.level}`}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-bold text-gray-900">₦{Number(fee.amount).toLocaleString()}</p>
+                          <p className="text-xs text-gray-500">
+                            Paid: ₦{Number(fee.amount_paid).toLocaleString()} / ₦{Number(fee.total_amount).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mb-2">
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div
+                            className="bg-blue-600 h-2 rounded-full transition-all"
+                            style={{ width: `${Math.min(progressPercent, 100)}%` }}
+                          />
+                        </div>
+                        <div className="flex justify-between mt-1">
+                          <span className="text-xs text-gray-500">{progressPercent.toFixed(0)}% paid</span>
+                          <span className="text-xs text-gray-500">Remaining: ₦{Number(fee.remaining_balance).toLocaleString()}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className={`text-xs px-2 py-1 rounded-full ${
+                          fee.status === 'completed' ? 'bg-green-100 text-green-700' :
+                          fee.status === 'partial' ? 'bg-yellow-100 text-yellow-700' :
+                          'bg-gray-100 text-gray-700'
+                        }`}>
+                          {fee.status === 'completed' ? 'Paid' : fee.status === 'partial' ? 'Partial' : 'Pending'}
+                        </span>
+                        {!fee.is_paid && fee.remaining_balance > 0 && (
+                          <button
+                            onClick={() => handlePayFee(fee.id, fee.name)}
+                            disabled={payingFeeId === fee.id || walletBalanceNgn < fee.remaining_balance}
+                            className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                          >
+                            {payingFeeId === fee.id ? 'Processing…' : `Pay ₦${Number(fee.remaining_balance).toLocaleString()}`}
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <span className="text-sm font-bold text-gray-900">₦{Number(fee.amount).toLocaleString()}</span>
-                      {fee.is_paid ? (
-                        <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700">Paid</span>
-                      ) : (
-                        <button
-                          onClick={() => handlePayFee(fee.id, fee.name)}
-                          disabled={payingFeeId === fee.id || walletBalanceNgn < fee.amount}
-                          className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                        >
-                          {payingFeeId === fee.id ? 'Processing…' : 'Pay'}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
