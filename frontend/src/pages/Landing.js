@@ -72,12 +72,8 @@ const Landing = () => {
       </nav>
 
       {/* Hero Section */}
-      <section className="relative">
-        {/* decorative blobs */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute -top-24 -left-10 h-64 w-64 bg-cyan-400/30 rounded-full blur-3xl animate-pulse" />
-          <div className="absolute -bottom-24 -right-10 h-72 w-72 bg-indigo-400/30 rounded-full blur-3xl animate-pulse" />
-        </div>
+      <section className="relative bg-cover bg-center bg-no-repeat" style={{backgroundImage: 'url(/images/hero-bg.jpg)'}}>
+        <div className="absolute inset-0 bg-blue-900/60" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 md:py-24">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
             <div>

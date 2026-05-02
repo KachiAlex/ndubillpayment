@@ -1,7 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-const API_BASE = process.env.REACT_APP_API_URL || '/api';
-
 function buildUrl(path) {
   // Always ensure path starts with /api
   const cleanPath = path.startsWith('/') ? path : '/' + path;

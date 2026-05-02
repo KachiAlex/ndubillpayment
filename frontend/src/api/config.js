@@ -29,7 +29,7 @@ export async function apiFetch(path, options = {}, timeoutMs = 25000) {
     if (!res.ok) {
       const ct = res.headers.get('content-type') || '';
       if (ct.includes('text/html')) {
-        const html = await res.text().catch(() => '');
+        await res.text().catch(() => '');
         console.error('[apiFetch] Received HTML instead of JSON. Status:', res.status, 'URL:', res.url);
         throw new Error(`Server returned HTML page (status ${res.status}). Check API URL.`);
       }
