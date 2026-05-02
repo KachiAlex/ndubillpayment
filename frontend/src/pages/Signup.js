@@ -4,13 +4,14 @@ import { useAuth } from '../contexts/AuthContext';
 
 const Signup = () => {
   const [formData, setFormData] = useState({
-    matric_no: '',
+    matric_number: '',
     email: '',
     password: '',
     confirmPassword: '',
     first_name: '',
     last_name: '',
     department: '',
+    level: '',
     session: ''
   });
   const [loading, setLoading] = useState(false);
@@ -38,7 +39,7 @@ const Signup = () => {
     setError('');
 
     // Validate Student ID format
-    if (!validateStudentID(formData.matric_no)) {
+    if (!validateStudentID(formData.matric_number)) {
       setError('Please enter a valid Student ID in the format: NDU/YYYY/XXX (e.g., NDU/2021/001)');
       setLoading(false);
       return;
@@ -89,17 +90,17 @@ const Signup = () => {
           )}
           <div className="space-y-4">
             <div>
-              <label htmlFor="matric_no" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="matric_number" className="block text-sm font-medium text-gray-700">
                 Student ID (Matriculation Number) *
               </label>
               <input
-                id="matric_no"
-                name="matric_no"
+                id="matric_number"
+                name="matric_number"
                 type="text"
                 required
                 className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 placeholder="NDU/2021/001"
-                value={formData.matric_no}
+                value={formData.matric_number}
                 onChange={handleChange}
               />
               <p className="mt-1 text-xs text-gray-500">
@@ -177,6 +178,27 @@ const Signup = () => {
                 <option value="Law">Law</option>
                 <option value="Medicine">Medicine</option>
                 <option value="Pharmacy">Pharmacy</option>
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="level" className="block text-sm font-medium text-gray-700">
+                Level
+              </label>
+              <select
+                id="level"
+                name="level"
+                required
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                value={formData.level}
+                onChange={handleChange}
+              >
+                <option value="">Select Level</option>
+                <option value="100">100 Level</option>
+                <option value="200">200 Level</option>
+                <option value="300">300 Level</option>
+                <option value="400">400 Level</option>
+                <option value="500">500 Level</option>
               </select>
             </div>
 
