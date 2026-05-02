@@ -11,6 +11,8 @@ const adminRoutes = require('./routes/admin');
 console.log('[app] admin routes loaded');
 const webhookRoutes = require('./routes/webhooks');
 console.log('[app] webhook routes loaded');
+const feeRoutes = require('./routes/fees');
+console.log('[app] fee routes loaded');
 const errorHandler = require('./middleware/errorHandler');
 console.log('[app] errorHandler loaded');
 
@@ -48,6 +50,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/webhooks', webhookRoutes);
+app.use('/api/fees', feeRoutes);
 
 // 404
 app.use('*', (req, res) => {

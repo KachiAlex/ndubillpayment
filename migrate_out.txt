@@ -1,0 +1,2 @@
+[knexfile] DATABASE_URL host: ep-autumn-dawn-an0gbxyk-pooler.c-6.us-east-1.aws.neon.tech
+Already up to date

@@ -4,7 +4,6 @@ import { useAuth } from '../contexts/AuthContext';
 
 const Login = () => {
   const [formData, setFormData] = useState({
-    matric_no: '',
     email: '',
     password: ''
   });
@@ -90,24 +89,6 @@ const Login = () => {
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
                 {error}
-              </div>
-            )}
-
-            {userType === 'student' && (
-              <div>
-                <label htmlFor="matric_no" className="block text-sm font-medium text-gray-700 mb-2">
-                  Matriculation Number
-                </label>
-                <input
-                  id="matric_no"
-                  name="matric_no"
-                  type="text"
-                  required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                  placeholder="NDU/2021/001"
-                  value={formData.matric_no}
-                  onChange={handleChange}
-                />
               </div>
             )}
 

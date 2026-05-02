@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from 'react-query';
 import { apiFetch } from '../api/config';
+import { getApplicableFees, payFee, getFeePayments } from '../api/fees';
 import notificationService from '../services/notificationService';
 import qrCodeService from '../services/qrCodeService';
 import biometricService from '../services/biometricService';
@@ -23,18 +24,28 @@ const useRecentTx = () => {
 
 const tabs = [
   { key: 'overview', label: 'Overview' },
+  { key: 'fees', label: 'Fees' },
   { key: 'wallet', label: 'Wallet' },
   { key: 'transactions', label: 'Transactions' },
 ];
 
+const useFees = () => {
+  return useQuery(['applicable-fees'], async () => {
+    const data = await getApplicableFees();
+    return data.fees || [];
+  });
+};
+
 const StudentDashboard = () => {
   const { data: wallet, isLoading: loadingBal } = useWallet();
   const { data: txs, isLoading: loadingTx } = useRecentTx();
+  const { data: fees, isLoading: loadingFees } = useFees();
   const [activeTab, setActiveTab] = useState('overview');
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricRegistered, setBiometricRegistered] = useState(false);
   const [qrCodeDataURL, setQrCodeDataURL] = useState(null);
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
+  const [payingFeeId, setPayingFeeId] = useState(null);
 
   const walletBalanceNgn = wallet?.balance ?? 0;
   const recentTx = Array.isArray(txs) ? txs : [];
@@ -116,6 +127,23 @@ const StudentDashboard = () => {
   const handlePrintQR = () => {
     if (qrCodeDataURL) {
       qrCodeService.printQRCode(qrCodeDataURL, 'NDU Wallet QR Code');
+    }
+  };
+
+  const handlePayFee = async (feeId, feeName) => {
+    setPayingFeeId(feeId);
+    try {
+      const result = await payFee(feeId);
+      notificationService.showNotification('Payment Successful ✅', {
+        body: `Paid ₦${Number(result.new_balance).toLocaleString()} for ${feeName}`
+      });
+      window.location.reload();
+    } catch (error) {
+      notificationService.showNotification('Payment Failed ❌', {
+        body: error.message || 'Could not pay fee from wallet'
+      });
+    } finally {
+      setPayingFeeId(null);
     }
   };
 
@@ -347,6 +375,54 @@ const StudentDashboard = () => {
             <h3 className="text-base font-semibold text-gray-900">Wallet Balance</h3>
             <p className="mt-2 text-3xl font-bold text-blue-700">{loadingBal ? '…' : `₦${walletBalanceNgn.toLocaleString()}`}</p>
             <button onClick={handleFund} className="mt-4 inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">Fund Wallet</button>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'fees' && (
+        <div className="grid grid-cols-1 gap-6">
+          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-base font-semibold text-gray-900">Applicable Fees</h3>
+                <p className="text-sm text-gray-500">Fees for your department &amp; level</p>
+              </div>
+              <div className="text-sm text-gray-500">Wallet: ₦{walletBalanceNgn.toLocaleString()}</div>
+            </div>
+            {loadingFees ? (
+              <div className="text-center py-10 text-gray-500">Loading…</div>
+            ) : !Array.isArray(fees) || fees.length === 0 ? (
+              <div className="text-center py-10 text-gray-500">No fees available for your department/level</div>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {fees.map(fee => (
+                  <div key={fee.id} className="py-4 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{fee.name}</p>
+                      <p className="text-xs text-gray-500">
+                        {fee.academic_session}
+                        {fee.department && ` · ${fee.department}`}
+                        {fee.level && ` · ${fee.level}`}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <span className="text-sm font-bold text-gray-900">₦{Number(fee.amount).toLocaleString()}</span>
+                      {fee.is_paid ? (
+                        <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700">Paid</span>
+                      ) : (
+                        <button
+                          onClick={() => handlePayFee(fee.id, fee.name)}
+                          disabled={payingFeeId === fee.id || walletBalanceNgn < fee.amount}
+                          className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                        >
+                          {payingFeeId === fee.id ? 'Processing…' : 'Pay'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
