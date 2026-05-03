@@ -126,26 +126,43 @@ const Layout = ({ children }) => {
         {/* Mobile Navigation */}
         {isMenuOpen && (
           <div className="md:hidden">
-            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-gray-50 border-t">
+            <div className="px-2 pt-4 pb-6 space-y-2 sm:px-3 bg-gray-50 border-t">
+              {/* User Info in Mobile Menu */}
+              <div className="flex items-center space-x-3 px-3 py-3 bg-white rounded-lg mb-4">
+                <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+                  <span className="text-blue-600 font-medium text-sm">
+                    {user?.first_name?.[0]}{user?.last_name?.[0]}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">
+                    {user?.first_name} {user?.last_name}
+                  </p>
+                  <p className="text-xs text-gray-500 capitalize">
+                    {user?.user_type}
+                  </p>
+                </div>
+              </div>
+
               {user?.user_type === 'student' && (
                 <>
                   <Link 
                     to="/dashboard" 
-                    className="text-gray-700 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium"
+                    className="text-gray-700 hover:text-blue-600 hover:bg-blue-50 block px-3 py-3 rounded-lg text-base font-medium transition-colors"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     Dashboard
                   </Link>
                   <Link 
                     to="/wallet" 
-                    className="text-gray-700 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium"
+                    className="text-gray-700 hover:text-blue-600 hover:bg-blue-50 block px-3 py-3 rounded-lg text-base font-medium transition-colors"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     Wallet
                   </Link>
                   <Link 
                     to="/transactions" 
-                    className="text-gray-700 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium"
+                    className="text-gray-700 hover:text-blue-600 hover:bg-blue-50 block px-3 py-3 rounded-lg text-base font-medium transition-colors"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     Transactions
@@ -157,14 +174,14 @@ const Layout = ({ children }) => {
                 <>
                   <Link 
                     to="/admin" 
-                    className="text-gray-700 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium"
+                    className="text-gray-700 hover:text-blue-600 hover:bg-blue-50 block px-3 py-3 rounded-lg text-base font-medium transition-colors"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     Admin Dashboard
                   </Link>
                   <Link 
                     to="/admin/reports" 
-                    className="text-gray-700 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium"
+                    className="text-gray-700 hover:text-blue-600 hover:bg-blue-50 block px-3 py-3 rounded-lg text-base font-medium transition-colors"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     Reports
@@ -174,11 +191,23 @@ const Layout = ({ children }) => {
               
               <Link 
                 to="/profile" 
-                className="text-gray-700 hover:text-blue-600 block px-3 py-2 rounded-md text-base font-medium"
+                className="text-gray-700 hover:text-blue-600 hover:bg-blue-50 block px-3 py-3 rounded-lg text-base font-medium transition-colors"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Profile
               </Link>
+
+              <div className="pt-4 border-t border-gray-200">
+                <button
+                  onClick={() => {
+                    handleLogout();
+                    setIsMenuOpen(false);
+                  }}
+                  className="w-full bg-red-600 text-white px-3 py-3 rounded-lg text-base font-medium hover:bg-red-700 transition-colors"
+                >
+                  Logout
+                </button>
+              </div>
             </div>
           </div>
         )}

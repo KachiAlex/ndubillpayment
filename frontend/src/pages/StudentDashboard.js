@@ -38,7 +38,7 @@ const useFees = () => {
 };
 
 const StudentDashboard = () => {
-  const { data: wallet, isLoading: loadingBal } = useWallet();
+  const { data: wallet } = useWallet();
   const { data: txs, isLoading: loadingTx } = useRecentTx();
   const { data: fees, isLoading: loadingFees } = useFees();
   const queryClient = useQueryClient();
@@ -137,7 +137,35 @@ const StudentDashboard = () => {
     window.open(flutterwaveUrl, '_blank');
   };
 
-  const handleBiometricRegister = async () => {
+  const handleDownloadQR = () => {
+    if (qrCodeDataURL) {
+      qrCodeService.downloadQRCode(qrCodeDataURL, 'ndu-wallet-qr.png');
+    }
+  };
+
+  const handlePrintQR = () => {
+    if (qrCodeDataURL) {
+      qrCodeService.printQRCode(qrCodeDataURL, 'NDU Wallet QR Code');
+    }
+  };
+
+  const handleGenerateQR = async () => {
+    try {
+      const user = JSON.parse(localStorage.getItem('user'));
+      const qrData = `ndu-wallet:${user.id}`;
+      const dataUrl = await qrCodeService.generateQRCode(qrData);
+      setQrCodeDataURL(dataUrl);
+      notificationService.showNotification('QR Code Generated ✅', {
+        body: 'Your wallet QR code is ready'
+      });
+    } catch (error) {
+      notificationService.showNotification('QR Code Generation Failed ❌', {
+        body: 'Could not generate QR code'
+      });
+    }
+  };
+
+  const handleRegisterBiometric = async () => {
     try {
       const user = JSON.parse(localStorage.getItem('user'));
       await biometricService.register(user.id, user.email);
@@ -149,31 +177,6 @@ const StudentDashboard = () => {
       notificationService.showNotification('Biometric Setup Failed ❌', {
         body: biometricService.getErrorMessage(error)
       });
-    }
-  };
-
-  const handleBiometricLogin = async () => {
-    try {
-      await biometricService.authenticate();
-      notificationService.showNotification('Biometric Login Successful! ✅', {
-        body: 'Welcome back to your dashboard'
-      });
-    } catch (error) {
-      notificationService.showNotification('Biometric Login Failed ❌', {
-        body: biometricService.getErrorMessage(error)
-      });
-    }
-  };
-
-  const handleDownloadQR = () => {
-    if (qrCodeDataURL) {
-      qrCodeService.downloadQRCode(qrCodeDataURL, 'ndu-wallet-qr.png');
-    }
-  };
-
-  const handlePrintQR = () => {
-    if (qrCodeDataURL) {
-      qrCodeService.printQRCode(qrCodeDataURL, 'NDU Wallet QR Code');
     }
   };
 
@@ -233,47 +236,47 @@ const StudentDashboard = () => {
       </div>
 
       {/* Balance Indicator */}
-      <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+      <div className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-sm">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Payment Status</h3>
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900">Payment Status</h3>
           <div className="flex items-center gap-2">
             <div className={`w-3 h-3 rounded-full ${walletBalanceNgn > 0 ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
-            <span className="text-sm font-medium text-gray-600">
+            <span className="text-xs sm:text-sm font-medium text-gray-600">
               {walletBalanceNgn > 0 ? 'Up to Date' : 'Payment Required'}
             </span>
           </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <div className="text-sm text-gray-600">Current Balance</div>
-            <div className="text-2xl font-bold text-gray-900">₦{walletBalanceNgn?.toLocaleString() || 0}</div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+          <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
+            <div className="text-xs sm:text-sm text-gray-600">Current Balance</div>
+            <div className="text-xl sm:text-2xl font-bold text-gray-900">₦{walletBalanceNgn?.toLocaleString() || 0}</div>
           </div>
           
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <div className="text-sm text-gray-600">Payment Status</div>
-            <div className={`text-lg font-semibold ${walletBalanceNgn > 0 ? 'text-green-600' : 'text-yellow-600'}`}>
+          <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
+            <div className="text-xs sm:text-sm text-gray-600">Payment Status</div>
+            <div className={`text-base sm:text-lg font-semibold ${walletBalanceNgn > 0 ? 'text-green-600' : 'text-yellow-600'}`}>
               {walletBalanceNgn > 0 ? '✅ Paid' : '⚠️ Outstanding'}
             </div>
           </div>
           
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <div className="text-sm text-gray-600">Action Required</div>
-            <div className="text-lg font-semibold text-gray-900">
+          <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
+            <div className="text-xs sm:text-sm text-gray-600">Action Required</div>
+            <div className="text-base sm:text-lg font-semibold text-gray-900">
               {walletBalanceNgn > 0 ? 'None' : 'Fund Wallet'}
             </div>
           </div>
         </div>
         
         {walletBalanceNgn === 0 && (
-          <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="mt-4 p-3 sm:p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <div className="flex items-start gap-3">
-              <svg className="w-5 h-5 text-yellow-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 19.5c-.77.833.192 2.5 1.732 2.5z"/>
               </svg>
               <div>
                 <h4 className="text-sm font-medium text-yellow-800">Payment Required</h4>
-                <p className="text-sm text-yellow-700 mt-1">
+                <p className="text-xs sm:text-sm text-yellow-700 mt-1">
                   You have an outstanding balance. Please fund your wallet to complete your tuition payment.
                 </p>
               </div>
@@ -299,158 +302,115 @@ const StudentDashboard = () => {
 
       {/* Content */}
       {activeTab === 'overview' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Wallet Card (MGX style) */}
           <div className="lg:col-span-2">
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-700 via-indigo-700 to-cyan-600 text-white p-6 sm:p-8">
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-700 via-indigo-700 to-cyan-600 text-white p-4 sm:p-6 lg:p-8">
               <div className="absolute -top-24 -right-24 w-80 h-80 bg-white/10 rounded-full blur-2xl" />
               <div className="absolute -bottom-24 -left-16 w-72 h-72 bg-white/10 rounded-full blur-2xl" />
               <div className="relative">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <p className="text-blue-100 text-xs sm:text-sm font-medium">Wallet Balance</p>
+                    <p className="text-2xl sm:text-4xl font-bold mt-1">₦{walletBalanceNgn?.toLocaleString() || 0}</p>
+                  </div>
+                  <button
+                    onClick={handleFund}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2 sm:px-6 sm:py-3 rounded-xl bg-white text-blue-700 font-semibold shadow-md hover:shadow-lg transition text-sm sm:text-base"
+                  >
+                    <span>Fund Wallet</span>
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                  </button>
+                </div>
+                <div className="mt-4 flex items-center gap-2">
                   <h3 className="text-sm uppercase tracking-widest text-cyan-200">Student Wallet</h3>
                   <span className="text-xs px-2 py-1 rounded-full bg-white/15 border border-white/20">NGN</span>
                 </div>
-                <p className="mt-4 text-4xl font-extrabold tracking-tight">{loadingBal ? '…' : `₦${walletBalanceNgn.toLocaleString()}`}</p>
-                <p className="mt-2 text-cyan-100/90 text-sm">Balance updates after payment confirmation</p>
-                <div className="mt-6">
-                  <button onClick={handleFund} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white text-blue-700 font-semibold shadow-md hover:shadow-lg transition">
-                    <span>Fund wallet via Flutterwave</span>
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 12h14M12 5l7 7-7 7"/></svg>
-                  </button>
-                </div>
+                <p className="mt-2 text-cyan-100/90 text-xs sm:text-sm">Balance updates after payment confirmation</p>
               </div>
             </div>
           </div>
 
           {/* Mobile Features */}
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* QR Code Section */}
-            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+            <div className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-sm">
               <h4 className="text-sm font-semibold text-gray-900 mb-4">Quick Access QR Code</h4>
               {qrCodeDataURL && (
                 <div className="text-center">
-                  <img src={qrCodeDataURL} alt="Wallet QR Code" className="mx-auto w-32 h-32 border border-gray-200 rounded-lg" />
+                  <img src={qrCodeDataURL} alt="Wallet QR Code" className="mx-auto w-28 h-28 sm:w-32 sm:h-32 border border-gray-200 rounded-lg" />
                   <p className="text-xs text-gray-500 mt-2">Scan to quickly fund wallet</p>
                   <div className="flex gap-2 mt-3">
-                    <button onClick={handleDownloadQR} className="flex-1 px-3 py-1.5 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition">
+                    <button onClick={handleDownloadQR} className="flex-1 px-3 py-2 text-xs sm:text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition">
                       Download
                     </button>
-                    <button onClick={handlePrintQR} className="flex-1 px-3 py-1.5 text-xs bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition">
+                    <button onClick={handlePrintQR} className="flex-1 px-3 py-2 text-xs sm:text-sm bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition">
                       Print
                     </button>
                   </div>
                 </div>
               )}
-            </div>
-
-            {/* Notification Settings */}
-            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-              <h4 className="text-sm font-semibold text-gray-900 mb-4">Notifications</h4>
-              <div className="space-y-3">
-                <button 
-                  onClick={() => setShowNotificationSettings(true)}
-                  className="w-full px-4 py-2 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition flex items-center justify-center gap-2"
+              {!qrCodeDataURL && (
+                <button
+                  onClick={handleGenerateQR}
+                  className="w-full px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-5 5v-5zM4 19h6v2H4a2 2 0 01-2-2V5a2 2 0 012-2h6v2H4v12z"/>
-                  </svg>
-                  Configure Notifications
+                  Generate QR Code
                 </button>
-              </div>
+              )}
             </div>
 
-            {/* Biometric Authentication */}
-            {biometricAvailable && (
-              <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                <h4 className="text-sm font-semibold text-gray-900 mb-4">Biometric Login</h4>
-                <div className="space-y-3">
+            {/* Biometric Section */}
+            <div className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-sm">
+              <h4 className="text-sm font-semibold text-gray-900 mb-4">Biometric Authentication</h4>
+              {biometricAvailable ? (
+                <div>
                   {biometricRegistered ? (
-                    <div>
-                      <p className="text-xs text-green-600 mb-3">✓ Biometric authentication enabled</p>
-                      <button 
-                        onClick={handleBiometricLogin}
-                        className="w-full px-4 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition flex items-center justify-center gap-2"
-                      >
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
-                        </svg>
-                        Login with Biometric
-                      </button>
+                    <div className="flex items-center gap-2 text-green-600 text-sm">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                      </svg>
+                      <span>Biometric enabled</span>
                     </div>
                   ) : (
-                    <button 
-                      onClick={handleBiometricRegister}
-                      className="w-full px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition flex items-center justify-center gap-2"
+                    <button
+                      onClick={handleRegisterBiometric}
+                      className="w-full px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
                     >
-                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
-                      </svg>
-                      Setup Biometric Login
+                      Register Biometric
                     </button>
                   )}
                 </div>
-              </div>
-            )}
-
-            {/* Important Info */}
-            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-              <h4 className="text-sm font-semibold text-gray-900">Important</h4>
-              <ul className="mt-3 text-sm text-gray-600 list-disc pl-5 space-y-1">
-                <li>Withdrawals and transfers are disabled.</li>
-                <li>Receipts generate automatically after successful payment.</li>
-                <li>Keep your reference for reconciliation.</li>
-                <li>Enable notifications for payment updates.</li>
-              </ul>
+              ) : (
+                <p className="text-sm text-gray-500">Biometric not available on this device</p>
+              )}
             </div>
-            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-              <h4 className="text-sm font-semibold text-gray-900">Quick Links</h4>
-              <div className="mt-3 grid grid-cols-1 gap-3">
-                <Link to="/wallet" className="group flex items-center justify-between p-4 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50/40 transition">
-                  <div>
-                    <p className="text-gray-900 font-medium">Wallet</p>
-                    <p className="text-gray-600 text-sm">Fund wallet and view balance</p>
-                  </div>
-                  <span className="text-blue-600 group-hover:translate-x-0.5 transition">→</span>
-                </Link>
-                <Link to="/transactions" className="group flex items-center justify-between p-4 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50/40 transition">
-                  <div>
-                    <p className="text-gray-900 font-medium">Transactions</p>
-                    <p className="text-gray-600 text-sm">View history and receipts</p>
-                  </div>
-                  <span className="text-blue-600 group-hover:translate-x-0.5 transition">→</span>
-                </Link>
-                <Link to="/profile" className="group flex items-center justify-between p-4 rounded-xl border border-gray-100 hover:border-blue-200 hover:bg-blue-50/40 transition">
-                  <div>
-                    <p className="text-gray-900 font-medium">Profile</p>
-                    <p className="text-gray-600 text-sm">Update your account details</p>
-                  </div>
-                  <span className="text-blue-600 group-hover:translate-x-0.5 transition">→</span>
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {activeTab === 'wallet' && (
-        <div className="grid grid-cols-1 gap-6">
-          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-            <h3 className="text-base font-semibold text-gray-900">Wallet Balance</h3>
-            <p className="mt-2 text-3xl font-bold text-blue-700">{loadingBal ? '…' : `₦${walletBalanceNgn.toLocaleString()}`}</p>
-            <button onClick={handleFund} className="mt-4 inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">Fund Wallet</button>
+            {/* Notification Settings */}
+            <div className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-sm">
+              <h4 className="text-sm font-semibold text-gray-900 mb-4">Notifications</h4>
+              <button
+                onClick={() => setShowNotificationSettings(true)}
+                className="w-full px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
+              >
+                Manage Notification Settings
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {activeTab === 'fees' && (
         <div className="grid grid-cols-1 gap-6">
-          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+          <div className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-base font-semibold text-gray-900">Applicable Fees</h3>
-                <p className="text-sm text-gray-500">Fees for your department &amp; level</p>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Applicable Fees</h3>
+                <p className="text-xs sm:text-sm text-gray-500">Fees for your department &amp; level</p>
               </div>
-              <div className="text-sm text-gray-500">Wallet: ₦{walletBalanceNgn.toLocaleString()}</div>
+              <div className="text-xs sm:text-sm text-gray-500">Wallet: ₦{walletBalanceNgn.toLocaleString()}</div>
             </div>
             {loadingFees ? (
               <div className="space-y-4">
@@ -466,7 +426,7 @@ const StudentDashboard = () => {
                   const progressPercent = fee.total_amount > 0 ? (fee.amount_paid / fee.total_amount) * 100 : 0;
                   return (
                     <div key={fee.id} className="py-4">
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                         <div>
                           <p className="text-sm font-medium text-gray-900">{fee.name}</p>
                           <p className="text-xs text-gray-500">
@@ -548,11 +508,44 @@ const StudentDashboard = () => {
         </div>
       )}
 
+      {activeTab === 'transactions' && (
+        <div className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900">Recent Transactions</h3>
+              <p className="text-xs sm:text-sm text-gray-500">Your wallet transaction history</p>
+            </div>
+          </div>
+          {loadingTx ? (
+            <div className="text-center py-10 text-gray-500">Loading transactions…</div>
+          ) : !Array.isArray(recentTx) || recentTx.length === 0 ? (
+            <div className="text-center py-10 text-gray-500">No transactions yet</div>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {recentTx.map(tx => (
+                <div key={tx.id} className="px-4 py-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{tx.description || 'Transaction'}</p>
+                    <p className="text-xs text-gray-500">{new Date(tx.created_at).toLocaleDateString()}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-sm font-bold ${tx.type === 'credit' ? 'text-green-600' : 'text-red-600'}`}>
+                      {tx.type === 'credit' ? '+' : '-'}₦{Number(tx.amount).toLocaleString()}
+                    </p>
+                    <p className="text-xs text-gray-500 capitalize">{tx.status}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Payment Dialog */}
       {paymentDialog.open && paymentDialog.fee && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-xl">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Pay Fee</h3>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-4 sm:p-6 max-w-md w-full shadow-xl">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Pay Fee</h3>
             <div className="mb-4">
               <p className="text-sm text-gray-600">{paymentDialog.fee.name}</p>
               <p className="text-xs text-gray-500">{paymentDialog.fee.academic_session}</p>
@@ -565,7 +558,7 @@ const StudentDashboard = () => {
                 max={paymentDialog.fee.remaining_balance}
                 value={paymentDialog.amount}
                 onChange={(e) => setPaymentDialog({ ...paymentDialog, amount: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
               <p className="text-xs text-gray-500 mt-1">
                 Remaining balance: ₦{Number(paymentDialog.fee.remaining_balance).toLocaleString()}
@@ -574,7 +567,7 @@ const StudentDashboard = () => {
             <div className="flex gap-3">
               <button
                 onClick={() => setPaymentDialog({ open: false, fee: null, amount: '' })}
-                className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
+                className="flex-1 px-3 py-2 sm:px-4 sm:py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
               >
                 Cancel
               </button>
@@ -587,7 +580,7 @@ const StudentDashboard = () => {
                   Number(paymentDialog.amount) > Number(paymentDialog.fee.remaining_balance) ||
                   walletBalanceNgn < Number(paymentDialog.amount)
                 }
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                className="flex-1 px-3 py-2 sm:px-4 sm:py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
               >
                 {payFeeMutation.isLoading ? 'Processing…' : 'Pay'}
               </button>
