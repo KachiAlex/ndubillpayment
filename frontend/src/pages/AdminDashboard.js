@@ -36,7 +36,7 @@ const AdminDashboard = () => {
   const { data: departmentsData } = useQuery(
     ['departments'],
     async () => {
-      const response = await fetch('/api/admin/departments', {
+      const response = await fetch('/api/public/departments', {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
       return response.json();
@@ -48,7 +48,7 @@ const AdminDashboard = () => {
   const { data: levelsData } = useQuery(
     ['levels'],
     async () => {
-      const response = await fetch('/api/admin/levels', {
+      const response = await fetch('/api/public/levels', {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
       return response.json();
@@ -60,7 +60,7 @@ const AdminDashboard = () => {
   const { data: sessionsData } = useQuery(
     ['academic-sessions'],
     async () => {
-      const response = await fetch('/api/admin/academic-sessions', {
+      const response = await fetch('/api/public/academic-sessions', {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
       return response.json();

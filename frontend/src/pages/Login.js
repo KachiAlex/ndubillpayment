@@ -7,7 +7,6 @@ const Login = () => {
     email: '',
     password: ''
   });
-  const [userType, setUserType] = useState('student');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
@@ -53,38 +52,6 @@ const Login = () => {
       {/* Login Form */}
       <div className="max-w-md mx-auto -mt-8 px-4">
         <div className="bg-white rounded-2xl shadow-2xl p-8">
-          {/* User Type Selection */}
-          <div className="flex mb-8 bg-gray-100 rounded-lg p-1">
-            <button
-              type="button"
-              onClick={() => setUserType('student')}
-              className={`flex-1 flex items-center justify-center py-3 px-4 rounded-md transition-all ${
-                userType === 'student'
-                  ? 'bg-white text-blue-600 border border-blue-200 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-800'
-              }`}
-            >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-              Student
-            </button>
-            <button
-              type="button"
-              onClick={() => setUserType('bursar')}
-              className={`flex-1 flex items-center justify-center py-3 px-4 rounded-md transition-all ${
-                userType === 'bursar'
-                  ? 'bg-white text-green-600 border border-green-200 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-800'
-              }`}
-            >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-              Bursar
-            </button>
-          </div>
-
           <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
@@ -94,7 +61,7 @@ const Login = () => {
 
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                {userType === 'student' ? 'Email' : 'Bursar Email'}
+                Email
               </label>
               <div className="relative">
                 <input
@@ -103,7 +70,7 @@ const Login = () => {
                   type="email"
                   required
                   className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                  placeholder={userType === 'student' ? 'student@ndu.edu.ng' : 'bursar@ndu.edu.ng'}
+                  placeholder="Enter your email"
                   value={formData.email}
                   onChange={handleChange}
                 />
@@ -158,29 +125,23 @@ const Login = () => {
             <button
               type="submit"
               disabled={loading}
-              className={`w-full py-3 px-4 rounded-lg font-semibold text-white transition-colors ${
-                userType === 'student' 
-                  ? 'bg-blue-600 hover:bg-blue-700' 
-                  : 'bg-green-600 hover:bg-green-700'
-              } disabled:opacity-50 disabled:cursor-not-allowed`}
+              className="w-full py-3 px-4 rounded-lg font-semibold text-white bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Logging in...' : 'Login'}
             </button>
           </form>
 
-          {userType === 'student' && (
-            <div className="mt-6 text-center">
-              <Link 
-                to="/signup" 
-                className="flex items-center justify-center text-blue-600 hover:text-blue-700 font-medium"
-              >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                New student? Register here
-              </Link>
-            </div>
-          )}
+          <div className="mt-6 text-center">
+            <Link 
+              to="/signup" 
+              className="flex items-center justify-center text-blue-600 hover:text-blue-700 font-medium"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              New student? Register here
+            </Link>
+          </div>
         </div>
       </div>
     </div>

@@ -147,7 +147,7 @@ router.get('/reports', async (req, res) => {
   }
 });
 
-// Get all unique departments
+// Get all unique departments (public)
 router.get('/departments', async (req, res) => {
   try {
     const departments = await database.db('users')
