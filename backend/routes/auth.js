@@ -7,6 +7,7 @@ const nodemailer = require('nodemailer');
 const database = require('../utils/database');
 const { authenticateJWT } = require('../middleware/auth');
 const { validate } = require('../middleware/validation');
+const AuditLogger = require('../utils/audit');
 
 const router = express.Router();
 
@@ -92,6 +93,17 @@ router.post('/register', validate(registerSchema), async (req, res) => {
     // Create wallet
     await database.db('wallets').insert({ user_id: user.id, balance: 0, currency: 'NGN' });
 
+    await AuditLogger.log({
+      action: 'user_registered',
+      userId: user.id,
+      userEmail: user.email,
+      userType: user.user_type,
+      entityType: 'user',
+      entityId: user.id,
+      newValues: { matric_number, email, first_name, last_name, department, level, session },
+      req
+    });
+
     const token = generateToken(user);
     res.status(201).json({ success: true, token, user: { id: user.id, email: user.email, first_name, last_name, matric_number, session, user_type: user.user_type } });
   } catch (err) {
@@ -125,6 +137,17 @@ router.post('/login', validate(loginSchema), async (req, res) => {
 
     const token = generateToken(user);
     console.log('[LOGIN] Success for:', email);
+
+    await AuditLogger.log({
+      action: 'user_login',
+      userId: user.id,
+      userEmail: user.email,
+      userType: user.user_type,
+      entityType: 'user',
+      entityId: user.id,
+      req
+    });
+
     res.json({ success: true, token, user: { id: user.id, email: user.email, first_name: user.first_name, last_name: user.last_name, matric_number: user.matric_number, user_type: user.user_type } });
   } catch (err) {
     console.error('[LOGIN ERROR]', err.message, err.stack);
@@ -139,6 +162,48 @@ router.get('/me', authenticateJWT, async (req, res) => {
     if (!user) return res.status(404).json({ success: false, error: 'User not found' });
     res.json({ success: true, user: { id: user.id, email: user.email, first_name: user.first_name, last_name: user.last_name, matric_number: user.matric_number, user_type: user.user_type, department: user.department, level: user.level } });
   } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Update profile
+router.put('/profile', authenticateJWT, async (req, res) => {
+  try {
+    const { first_name, last_name, department, level, session } = req.body;
+    
+    const updateData = {};
+    if (first_name) updateData.first_name = first_name;
+    if (last_name) updateData.last_name = last_name;
+    if (department) updateData.department = department;
+    if (level) updateData.level = level;
+    if (session) updateData.session = session;
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ success: false, error: 'No fields to update' });
+    }
+
+    const [user] = await database.db('users')
+      .where({ id: req.user.id })
+      .update(updateData)
+      .returning('*');
+
+    if (!user) return res.status(404).json({ success: false, error: 'User not found' });
+
+    await AuditLogger.log({
+      action: 'profile_updated',
+      userId: req.user.id,
+      userEmail: req.user.email,
+      userType: req.user.user_type,
+      entityType: 'user',
+      entityId: user.id,
+      oldValues: { first_name: req.user.first_name, last_name: req.user.last_name },
+      newValues: updateData,
+      req
+    });
+
+    res.json({ success: true, user: { id: user.id, email: user.email, first_name: user.first_name, last_name: user.last_name, matric_number: user.matric_number, user_type: user.user_type, department: user.department, level: user.level } });
+  } catch (err) {
+    console.error('[PROFILE UPDATE ERROR]', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -190,6 +255,17 @@ router.post('/forgot-password', validate(forgotPasswordSchema), async (req, res)
     };
 
     await transporter.sendMail(mailOptions);
+
+    await AuditLogger.log({
+      action: 'password_reset_requested',
+      userId: user.id,
+      userEmail: user.email,
+      userType: user.user_type,
+      entityType: 'user',
+      entityId: user.id,
+      newValues: { email },
+      req
+    });
 
     res.json({ success: true, message: 'If the email exists, a reset link has been sent' });
   } catch (err) {
@@ -246,6 +322,15 @@ router.post('/reset-password', validate(resetPasswordSchema), async (req, res) =
     await database.db('password_resets')
       .where({ id: reset.id })
       .update({ used_at: new Date() });
+
+    await AuditLogger.log({
+      action: 'password_reset_completed',
+      userId: reset.user_id,
+      entityType: 'user',
+      entityId: reset.user_id,
+      newValues: { reset_id: reset.id },
+      req
+    });
 
     res.json({ success: true, message: 'Password reset successful' });
   } catch (err) {

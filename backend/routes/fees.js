@@ -3,6 +3,7 @@ const database = require('../utils/database');
 const { authenticateJWT, authorizeRoles } = require('../middleware/auth');
 const { v4: uuidv4 } = require('uuid');
 const PDFDocument = require('pdfkit');
+const AuditLogger = require('../utils/audit');
 
 const router = express.Router();
 
@@ -22,6 +23,18 @@ router.post('/', authenticateJWT, authorizeRoles('bursar', 'admin'), async (req,
       description: description || null,
       created_by: req.user.id
     }).returning('*');
+
+    await AuditLogger.log({
+      action: 'fee_created',
+      userId: req.user.id,
+      userEmail: req.user.email,
+      userType: req.user.user_type,
+      entityType: 'fee',
+      entityId: fee.id,
+      newValues: { name, amount, academic_session, department, level, description },
+      req
+    });
+
     res.status(201).json({ success: true, fee });
   } catch (err) {
     console.error('[fees] create error:', err.message);
@@ -48,6 +61,18 @@ router.put('/:id', authenticateJWT, authorizeRoles('bursar', 'admin'), async (re
       .update({ name, amount, academic_session, department, level, description, is_active, updated_at: new Date() })
       .returning('*');
     if (!fee) return res.status(404).json({ success: false, error: 'Fee not found' });
+
+    await AuditLogger.log({
+      action: 'fee_updated',
+      userId: req.user.id,
+      userEmail: req.user.email,
+      userType: req.user.user_type,
+      entityType: 'fee',
+      entityId: fee.id,
+      newValues: { name, amount, academic_session, department, level, description, is_active },
+      req
+    });
+
     res.json({ success: true, fee });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -59,6 +84,17 @@ router.delete('/:id', authenticateJWT, authorizeRoles('bursar', 'admin'), async 
   try {
     const deleted = await database.db('fees').where({ id: req.params.id }).del();
     if (!deleted) return res.status(404).json({ success: false, error: 'Fee not found' });
+
+    await AuditLogger.log({
+      action: 'fee_deleted',
+      userId: req.user.id,
+      userEmail: req.user.email,
+      userType: req.user.user_type,
+      entityType: 'fee',
+      entityId: parseInt(req.params.id),
+      req
+    });
+
     res.json({ success: true, message: 'Fee deleted' });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -242,6 +278,23 @@ router.post('/:id/pay', authenticateJWT, authorizeRoles('student'), async (req, 
 
     await trx.commit();
 
+    await AuditLogger.log({
+      action: 'payment_processed',
+      userId: req.user.id,
+      userEmail: req.user.email,
+      userType: req.user.user_type,
+      entityType: 'payment',
+      entityId: transaction.id,
+      newValues: {
+        fee_id: fee.id,
+        fee_name: fee.name,
+        amount: amountToPay,
+        payment_method: 'wallet',
+        reference
+      },
+      req
+    });
+
     res.json({
       success: true,
       message: `Paid ₦${amountToPay} for ${fee.name}`,
@@ -344,6 +397,197 @@ router.get('/payments', authenticateJWT, authorizeRoles('student'), async (req, 
       .orderBy('fee_payments.created_at', 'desc');
     res.json({ success: true, payments });
   } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ── BURSAR: Request refund for a payment ──
+router.post('/payments/:paymentId/refund', authenticateJWT, authorizeRoles('bursar', 'admin'), async (req, res) => {
+  const trx = await database.db.transaction();
+  try {
+    const { reason } = req.body;
+    const paymentId = req.params.paymentId;
+
+    const payment = await trx('fee_payments')
+      .where({ id: paymentId })
+      .first();
+
+    if (!payment) {
+      await trx.rollback();
+      return res.status(404).json({ success: false, error: 'Payment not found' });
+    }
+
+    if (payment.status !== 'completed' && payment.status !== 'partial') {
+      await trx.rollback();
+      return res.status(400).json({ success: false, error: 'Cannot refund a payment that is not completed or partial' });
+    }
+
+    const existingRefund = await trx('refunds')
+      .where({ fee_payment_id: paymentId })
+      .whereIn('status', ['pending', 'approved', 'processed'])
+      .first();
+
+    if (existingRefund) {
+      await trx.rollback();
+      return res.status(400).json({ success: false, error: 'A refund request already exists for this payment' });
+    }
+
+    const transaction = await trx('transactions')
+      .where({ user_id: payment.user_id })
+      .where('description', 'like', `%${payment.reference}%`)
+      .orderBy('created_at', 'desc')
+      .first();
+
+    if (!transaction) {
+      await trx.rollback();
+      return res.status(404).json({ success: false, error: 'Associated transaction not found' });
+    }
+
+    const [refund] = await trx('refunds').insert({
+      user_id: payment.user_id,
+      transaction_id: transaction.id,
+      fee_payment_id: payment.id,
+      amount: payment.amount_paid,
+      reason: reason || 'Refund requested by bursar',
+      status: 'pending'
+    }).returning('*');
+
+    await trx.commit();
+
+    await AuditLogger.log({
+      action: 'refund_requested',
+      userId: req.user.id,
+      userEmail: req.user.email,
+      userType: req.user.user_type,
+      entityType: 'refund',
+      entityId: refund.id,
+      newValues: { payment_id: paymentId, amount: payment.amount_paid, reason },
+      req
+    });
+
+    res.status(201).json({ success: true, refund });
+  } catch (err) {
+    await trx.rollback();
+    console.error('[fees] refund request error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ── BURSAR: List all refund requests ──
+router.get('/refunds', authenticateJWT, authorizeRoles('bursar', 'admin'), async (req, res) => {
+  try {
+    const refunds = await database.db('refunds')
+      .join('users', 'refunds.user_id', 'users.id')
+      .join('transactions', 'refunds.transaction_id', 'transactions.id')
+      .select(
+        'refunds.*',
+        'users.first_name',
+        'users.last_name',
+        'users.email',
+        'transactions.tx_ref'
+      )
+      .orderBy('refunds.created_at', 'desc');
+    res.json({ success: true, refunds });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ── BURSAR: Process refund (approve/reject) ──
+router.put('/refunds/:refundId/process', authenticateJWT, authorizeRoles('bursar', 'admin'), async (req, res) => {
+  const trx = await database.db.transaction();
+  try {
+    const { action } = req.body;
+    const refundId = req.params.refundId;
+
+    const refund = await trx('refunds').where({ id: refundId }).first();
+    if (!refund) {
+      await trx.rollback();
+      return res.status(404).json({ success: false, error: 'Refund not found' });
+    }
+
+    if (refund.status !== 'pending') {
+      await trx.rollback();
+      return res.status(400).json({ success: false, error: 'Refund has already been processed' });
+    }
+
+    if (action === 'reject') {
+      await trx('refunds').where({ id: refundId }).update({ status: 'rejected', processed_by: req.user.id, processed_at: new Date() });
+      await trx.commit();
+
+      await AuditLogger.log({
+        action: 'refund_rejected',
+        userId: req.user.id,
+        userEmail: req.user.email,
+        userType: req.user.user_type,
+        entityType: 'refund',
+        entityId: parseInt(refundId),
+        newValues: { refund_id: refundId, action: 'reject' },
+        req
+      });
+
+      return res.json({ success: true, message: 'Refund rejected' });
+    }
+
+    if (action === 'approve') {
+      const wallet = await trx('wallets').where({ user_id: refund.user_id }).first();
+      if (!wallet) {
+        await trx.rollback();
+        return res.status(400).json({ success: false, error: 'Wallet not found' });
+      }
+
+      const newBalance = parseFloat(wallet.balance) + parseFloat(refund.amount);
+      await trx('wallets').where({ id: wallet.id }).update({ balance: newBalance });
+
+      const refundRef = `REFUND-${Date.now()}-${refund.user_id.slice(0, 8)}`;
+      await trx('transactions').insert({
+        user_id: refund.user_id,
+        tx_ref: refundRef,
+        type: 'refund',
+        status: 'completed',
+        amount: refund.amount,
+        currency: 'NGN',
+        description: `Refund: ${refund.reason || 'No reason provided'}`,
+        payment_method: 'wallet'
+      });
+
+      await trx('refunds').where({ id: refundId }).update({ status: 'processed', processed_by: req.user.id, processed_at: new Date() });
+
+      if (refund.fee_payment_id) {
+        const payment = await trx('fee_payments').where({ id: refund.fee_payment_id }).first();
+        if (payment) {
+          const newAmountPaid = parseFloat(payment.amount_paid) - parseFloat(refund.amount);
+          const newRemaining = parseFloat(payment.total_amount) - newAmountPaid;
+          const newStatus = newAmountPaid <= 0 ? 'pending' : (newRemaining <= 0 ? 'completed' : 'partial');
+          await trx('fee_payments').where({ id: refund.fee_payment_id }).update({
+            amount_paid: newAmountPaid,
+            remaining_balance: newRemaining,
+            status: newStatus
+          });
+        }
+      }
+
+      await trx.commit();
+
+      await AuditLogger.log({
+        action: 'refund_approved',
+        userId: req.user.id,
+        userEmail: req.user.email,
+        userType: req.user.user_type,
+        entityType: 'refund',
+        entityId: parseInt(refundId),
+        newValues: { refund_id: refundId, action: 'approve', amount: refund.amount },
+        req
+      });
+
+      return res.json({ success: true, message: 'Refund processed successfully' });
+    }
+
+    await trx.rollback();
+    res.status(400).json({ success: false, error: 'Invalid action. Use "approve" or "reject"' });
+  } catch (err) {
+    await trx.rollback();
+    console.error('[fees] refund process error:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });

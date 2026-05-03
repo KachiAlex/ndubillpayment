@@ -2,6 +2,7 @@ const express = require('express');
 const database = require('../utils/database');
 const { authenticateJWT, authorizeRoles } = require('../middleware/auth');
 const ExcelJS = require('exceljs');
+const AuditLogger = require('../utils/audit');
 
 const router = express.Router();
 
@@ -672,6 +673,39 @@ router.get('/export/paid-students/csv', async (req, res) => {
     res.send(csvContent);
   } catch (err) {
     console.error('[admin] paid students csv export error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ── BURSAR: View audit logs ──
+router.get('/audit-logs', async (req, res) => {
+  try {
+    const { action, entity_type, limit = 100, offset = 0 } = req.query;
+
+    let query = database.db('audit_logs')
+      .select(
+        'audit_logs.*',
+        'users.first_name',
+        'users.last_name',
+        'users.email'
+      )
+      .leftJoin('users', 'audit_logs.user_id', 'users.id')
+      .orderBy('audit_logs.created_at', 'desc')
+      .limit(parseInt(limit))
+      .offset(parseInt(offset));
+
+    if (action) {
+      query = query.where('audit_logs.action', action);
+    }
+    if (entity_type) {
+      query = query.where('audit_logs.entity_type', entity_type);
+    }
+
+    const logs = await query;
+
+    res.json({ success: true, logs });
+  } catch (err) {
+    console.error('[admin] audit logs error:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
