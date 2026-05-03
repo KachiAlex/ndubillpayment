@@ -161,6 +161,40 @@ router.get('/departments', async (req, res) => {
   }
 });
 
+// Create new department
+router.post('/departments', async (req, res) => {
+  try {
+    const { department } = req.body;
+    
+    if (!department) {
+      return res.status(400).json({ success: false, error: 'Department name is required' });
+    }
+
+    // Check if department already exists
+    const existing = await database.db('users').where({ department }).first();
+    if (existing) {
+      return res.json({ success: true, department, message: 'Department already exists' });
+    }
+
+    // Insert a placeholder user with the new department to make it available
+    await database.db('users').insert({
+      matric_number: `TEMP_${Date.now()}`,
+      email: `temp_${Date.now()}@placeholder.com`,
+      password_hash: '$2a$10$placeholder',
+      first_name: 'Placeholder',
+      last_name: 'User',
+      department,
+      level: '100',
+      user_type: 'student',
+      is_verified: false
+    });
+
+    res.json({ success: true, department });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Get all unique levels
 router.get('/levels', async (req, res) => {
   try {
@@ -170,6 +204,86 @@ router.get('/levels', async (req, res) => {
       .pluck('level');
     
     res.json({ success: true, levels });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Create new level
+router.post('/levels', async (req, res) => {
+  try {
+    const { level } = req.body;
+    
+    if (!level) {
+      return res.status(400).json({ success: false, error: 'Level is required' });
+    }
+
+    // Check if level already exists
+    const existing = await database.db('users').where({ level }).first();
+    if (existing) {
+      return res.json({ success: true, level, message: 'Level already exists' });
+    }
+
+    // Insert a placeholder user with the new level to make it available
+    await database.db('users').insert({
+      matric_number: `TEMP_${Date.now()}`,
+      email: `temp_${Date.now()}@placeholder.com`,
+      password_hash: '$2a$10$placeholder',
+      first_name: 'Placeholder',
+      last_name: 'User',
+      department: 'Computer Science',
+      level,
+      user_type: 'student',
+      is_verified: false
+    });
+
+    res.json({ success: true, level });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Get all unique academic sessions
+router.get('/academic-sessions', async (req, res) => {
+  try {
+    const sessions = await database.db('fees')
+      .distinct('academic_session')
+      .whereNotNull('academic_session')
+      .orderBy('academic_session', 'desc')
+      .pluck('academic_session');
+    
+    res.json({ success: true, sessions });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Create new academic session
+router.post('/academic-sessions', async (req, res) => {
+  try {
+    const { academic_session } = req.body;
+    
+    if (!academic_session) {
+      return res.status(400).json({ success: false, error: 'Academic session is required' });
+    }
+
+    // Check if session already exists
+    const existing = await database.db('fees').where({ academic_session }).first();
+    if (existing) {
+      return res.json({ success: true, academic_session, message: 'Academic session already exists' });
+    }
+
+    // Insert a placeholder fee with the new session to make it available
+    await database.db('fees').insert({
+      name: 'Placeholder Fee',
+      amount: 0,
+      department: 'Computer Science',
+      level: '100',
+      academic_session,
+      is_active: false
+    });
+
+    res.json({ success: true, academic_session });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

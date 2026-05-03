@@ -30,6 +30,7 @@ const AdminDashboard = () => {
   const [editingFeeId, setEditingFeeId] = useState(null);
   const [showNewDeptInput, setShowNewDeptInput] = useState(false);
   const [showNewLevelInput, setShowNewLevelInput] = useState(false);
+  const [showNewSessionInput, setShowNewSessionInput] = useState(false);
 
   // Fetch departments
   const { data: departmentsData } = useQuery(
@@ -55,8 +56,105 @@ const AdminDashboard = () => {
     { enabled: activeTab === 'fees' }
   );
 
+  // Fetch academic sessions
+  const { data: sessionsData } = useQuery(
+    ['academic-sessions'],
+    async () => {
+      const response = await fetch('/api/admin/academic-sessions', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      return response.json();
+    },
+    { enabled: activeTab === 'fees' }
+  );
+
   const departments = departmentsData?.departments || [];
   const levels = levelsData?.levels || [];
+  const academicSessions = sessionsData?.sessions || [];
+
+  const handleSaveNewDepartment = async () => {
+    if (!feeForm.department) {
+      toast.error('Please enter a department name');
+      return;
+    }
+    try {
+      const response = await fetch('/api/admin/departments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ department: feeForm.department })
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast.success('Department saved successfully');
+        setShowNewDeptInput(false);
+        // Refetch departments
+        window.location.reload();
+      } else {
+        toast.error(data.error || 'Failed to save department');
+      }
+    } catch (error) {
+      toast.error('Failed to save department');
+    }
+  };
+
+  const handleSaveNewLevel = async () => {
+    if (!feeForm.level) {
+      toast.error('Please enter a level');
+      return;
+    }
+    try {
+      const response = await fetch('/api/admin/levels', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ level: feeForm.level })
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast.success('Level saved successfully');
+        setShowNewLevelInput(false);
+        // Refetch levels
+        window.location.reload();
+      } else {
+        toast.error(data.error || 'Failed to save level');
+      }
+    } catch (error) {
+      toast.error('Failed to save level');
+    }
+  };
+
+  const handleSaveNewSession = async () => {
+    if (!feeForm.academic_session) {
+      toast.error('Please enter an academic session');
+      return;
+    }
+    try {
+      const response = await fetch('/api/admin/academic-sessions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ academic_session: feeForm.academic_session })
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast.success('Academic session saved successfully');
+        setShowNewSessionInput(false);
+        // Refetch sessions
+        window.location.reload();
+      } else {
+        toast.error(data.error || 'Failed to save academic session');
+      }
+    } catch (error) {
+      toast.error('Failed to save academic session');
+    }
+  };
 
   // Auto-load fees when fees tab is active
   useEffect(() => {
@@ -785,6 +883,12 @@ const AdminDashboard = () => {
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                   <button
+                    onClick={handleSaveNewDepartment}
+                    className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                  >
+                    Save
+                  </button>
+                  <button
                     onClick={() => setShowNewDeptInput(false)}
                     className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
                   >
@@ -823,6 +927,12 @@ const AdminDashboard = () => {
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                   <button
+                    onClick={handleSaveNewLevel}
+                    className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                  >
+                    Save
+                  </button>
+                  <button
                     onClick={() => setShowNewLevelInput(false)}
                     className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
                   >
@@ -851,7 +961,49 @@ const AdminDashboard = () => {
                 </div>
               )}
 
-              <input placeholder="Academic session (e.g., 2024/2025)" value={feeForm.academic_session} onChange={e => setFeeForm(p => ({ ...p, academic_session: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              {/* Academic session field with dropdown and create option */}
+              {showNewSessionInput ? (
+                <div className="flex gap-2">
+                  <input 
+                    placeholder="New academic session (e.g., 2025/2026)" 
+                    value={feeForm.academic_session} 
+                    onChange={e => setFeeForm(p => ({ ...p, academic_session: e.target.value }))} 
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <button
+                    onClick={handleSaveNewSession}
+                    className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => setShowNewSessionInput(false)}
+                    className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <select
+                    value={feeForm.academic_session}
+                    onChange={e => setFeeForm(p => ({ ...p, academic_session: e.target.value }))}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select academic session</option>
+                    {academicSessions.map(session => (
+                      <option key={session} value={session}>{session}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => setShowNewSessionInput(true)}
+                    className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition"
+                    title="Create new academic session"
+                  >
+                    +
+                  </button>
+                </div>
+              )}
             </div>
             <button
               onClick={async () => {
@@ -867,6 +1019,7 @@ const AdminDashboard = () => {
                   setEditingFeeId(null);
                   setShowNewDeptInput(false);
                   setShowNewLevelInput(false);
+                  setShowNewSessionInput(false);
                   const d = await getAllFees();
                   setFeesData(d.fees || []);
                 } catch (err) {
