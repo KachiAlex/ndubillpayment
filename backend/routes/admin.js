@@ -1,6 +1,7 @@
 const express = require('express');
 const database = require('../utils/database');
 const { authenticateJWT, authorizeRoles } = require('../middleware/auth');
+const ExcelJS = require('exceljs');
 
 const router = express.Router();
 
@@ -369,7 +370,7 @@ router.post('/reconcile', async (req, res) => {
   }
 });
 
-// Export transactions to Excel (placeholder - needs actual Excel library)
+// Export transactions to Excel
 router.get('/export/excel', async (req, res) => {
   try {
     const { start_date, end_date, department, session } = req.query;
@@ -397,18 +398,66 @@ router.get('/export/excel', async (req, res) => {
 
     const transactions = await query.orderBy('transactions.created_at', 'desc');
 
-    // For now, return JSON. Excel export would require a library like exceljs
-    res.json({
-      success: true,
-      transactions,
-      message: 'Excel export library not yet implemented'
+    // Create Excel workbook
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Transactions');
+
+    // Add headers
+    worksheet.columns = [
+      { header: 'Transaction ID', key: 'id', width: 20 },
+      { header: 'Reference', key: 'tx_ref', width: 25 },
+      { header: 'Matric Number', key: 'matric_number', width: 20 },
+      { header: 'First Name', key: 'first_name', width: 20 },
+      { header: 'Last Name', key: 'last_name', width: 20 },
+      { header: 'Department', key: 'department', width: 25 },
+      { header: 'Level', key: 'level', width: 10 },
+      { header: 'Type', key: 'type', width: 15 },
+      { header: 'Amount', key: 'amount', width: 15 },
+      { header: 'Currency', key: 'currency', width: 10 },
+      { header: 'Status', key: 'status', width: 15 },
+      { header: 'Payment Method', key: 'payment_method', width: 20 },
+      { header: 'Description', key: 'description', width: 40 },
+      { header: 'Date', key: 'created_at', width: 20 }
+    ];
+
+    // Style header row
+    worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    worksheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+
+    // Add data
+    transactions.forEach(tx => {
+      worksheet.addRow({
+        id: tx.id,
+        tx_ref: tx.tx_ref,
+        matric_number: tx.matric_number || 'N/A',
+        first_name: tx.first_name,
+        last_name: tx.last_name,
+        department: tx.department || 'N/A',
+        level: tx.level || 'N/A',
+        type: tx.type,
+        amount: Number(tx.amount).toFixed(2),
+        currency: tx.currency,
+        status: tx.status,
+        payment_method: tx.payment_method || 'N/A',
+        description: tx.description || 'N/A',
+        created_at: new Date(tx.created_at).toLocaleString()
+      });
     });
+
+    // Set response headers
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="transactions-${Date.now()}.xlsx"`);
+
+    // Send file
+    await workbook.xlsx.write(res);
+    res.end();
   } catch (err) {
+    console.error('[admin] excel export error:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// Export transactions to CSV (placeholder)
+// Export transactions to CSV
 router.get('/export/csv', async (req, res) => {
   try {
     const { start_date, end_date, department, session } = req.query;
@@ -436,18 +485,59 @@ router.get('/export/csv', async (req, res) => {
 
     const transactions = await query.orderBy('transactions.created_at', 'desc');
 
-    // For now, return JSON. CSV export would require proper CSV generation
-    res.json({
-      success: true,
-      transactions,
-      message: 'CSV export not yet implemented'
-    });
+    // Create CSV header
+    const headers = [
+      'Transaction ID',
+      'Reference',
+      'Matric Number',
+      'First Name',
+      'Last Name',
+      'Department',
+      'Level',
+      'Type',
+      'Amount',
+      'Currency',
+      'Status',
+      'Payment Method',
+      'Description',
+      'Date'
+    ];
+
+    // Create CSV rows
+    const csvRows = [
+      headers.join(','),
+      ...transactions.map(tx => [
+        tx.id,
+        tx.tx_ref,
+        tx.matric_number || 'N/A',
+        tx.first_name,
+        tx.last_name,
+        tx.department || 'N/A',
+        tx.level || 'N/A',
+        tx.type,
+        Number(tx.amount).toFixed(2),
+        tx.currency,
+        tx.status,
+        tx.payment_method || 'N/A',
+        `"${(tx.description || 'N/A').replace(/"/g, '""')}"`,
+        new Date(tx.created_at).toLocaleString()
+      ].join(','))
+    ];
+
+    const csvContent = csvRows.join('\n');
+
+    // Set response headers
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="transactions-${Date.now()}.csv"`);
+
+    res.send(csvContent);
   } catch (err) {
+    console.error('[admin] csv export error:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// Export paid students to Excel (placeholder)
+// Export paid students to Excel
 router.get('/export/paid-students/excel', async (req, res) => {
   try {
     const { start_date, end_date, department, session } = req.query;
@@ -477,17 +567,50 @@ router.get('/export/paid-students/excel', async (req, res) => {
 
     const students = await query;
 
-    res.json({
-      success: true,
-      students,
-      message: 'Excel export library not yet implemented'
+    // Create Excel workbook
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Paid Students');
+
+    // Add headers
+    worksheet.columns = [
+      { header: 'Student ID', key: 'id', width: 20 },
+      { header: 'Matric Number', key: 'matric_number', width: 20 },
+      { header: 'First Name', key: 'first_name', width: 20 },
+      { header: 'Last Name', key: 'last_name', width: 20 },
+      { header: 'Department', key: 'department', width: 25 },
+      { header: 'Level', key: 'level', width: 10 }
+    ];
+
+    // Style header row
+    worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    worksheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
+
+    // Add data
+    students.forEach(student => {
+      worksheet.addRow({
+        id: student.id,
+        matric_number: student.matric_number || 'N/A',
+        first_name: student.first_name,
+        last_name: student.last_name,
+        department: student.department || 'N/A',
+        level: student.level || 'N/A'
+      });
     });
+
+    // Set response headers
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="paid-students-${Date.now()}.xlsx"`);
+
+    // Send file
+    await workbook.xlsx.write(res);
+    res.end();
   } catch (err) {
+    console.error('[admin] paid students excel export error:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// Export paid students to CSV (placeholder)
+// Export paid students to CSV
 router.get('/export/paid-students/csv', async (req, res) => {
   try {
     const { start_date, end_date, department, session } = req.query;
@@ -517,12 +640,38 @@ router.get('/export/paid-students/csv', async (req, res) => {
 
     const students = await query;
 
-    res.json({
-      success: true,
-      students,
-      message: 'CSV export not yet implemented'
-    });
+    // Create CSV header
+    const headers = [
+      'Student ID',
+      'Matric Number',
+      'First Name',
+      'Last Name',
+      'Department',
+      'Level'
+    ];
+
+    // Create CSV rows
+    const csvRows = [
+      headers.join(','),
+      ...students.map(student => [
+        student.id,
+        student.matric_number || 'N/A',
+        student.first_name,
+        student.last_name,
+        student.department || 'N/A',
+        student.level || 'N/A'
+      ].join(','))
+    ];
+
+    const csvContent = csvRows.join('\n');
+
+    // Set response headers
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="paid-students-${Date.now()}.csv"`);
+
+    res.send(csvContent);
   } catch (err) {
+    console.error('[admin] paid students csv export error:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
