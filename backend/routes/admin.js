@@ -147,6 +147,34 @@ router.get('/reports', async (req, res) => {
   }
 });
 
+// Get all unique departments
+router.get('/departments', async (req, res) => {
+  try {
+    const departments = await database.db('users')
+      .distinct('department')
+      .orderBy('department', 'asc')
+      .pluck('department');
+    
+    res.json({ success: true, departments });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Get all unique levels
+router.get('/levels', async (req, res) => {
+  try {
+    const levels = await database.db('users')
+      .distinct('level')
+      .orderBy('level', 'asc')
+      .pluck('level');
+    
+    res.json({ success: true, levels });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Download receipt
 router.get('/receipt/:receipt_number', async (req, res) => {
   try {

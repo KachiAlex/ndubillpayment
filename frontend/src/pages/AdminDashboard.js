@@ -28,6 +28,35 @@ const AdminDashboard = () => {
   const [feesLoading, setFeesLoading] = useState(false);
   const [feeForm, setFeeForm] = useState({ name: '', amount: '', department: '', level: '', academic_session: '' });
   const [editingFeeId, setEditingFeeId] = useState(null);
+  const [showNewDeptInput, setShowNewDeptInput] = useState(false);
+  const [showNewLevelInput, setShowNewLevelInput] = useState(false);
+
+  // Fetch departments
+  const { data: departmentsData } = useQuery(
+    ['departments'],
+    async () => {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/admin/departments`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      return response.json();
+    },
+    { enabled: activeTab === 'fees' }
+  );
+
+  // Fetch levels
+  const { data: levelsData } = useQuery(
+    ['levels'],
+    async () => {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/admin/levels`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      return response.json();
+    },
+    { enabled: activeTab === 'fees' }
+  );
+
+  const departments = departmentsData?.departments || [];
+  const levels = levelsData?.levels || [];
 
   // Auto-load fees when fees tab is active
   useEffect(() => {
@@ -745,8 +774,83 @@ const AdminDashboard = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               <input placeholder="Fee name" value={feeForm.name} onChange={e => setFeeForm(p => ({ ...p, name: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               <input placeholder="Amount (₦)" type="number" value={feeForm.amount} onChange={e => setFeeForm(p => ({ ...p, amount: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-              <input placeholder="Department (optional)" value={feeForm.department} onChange={e => setFeeForm(p => ({ ...p, department: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-              <input placeholder="Level (e.g., 100, 200)" value={feeForm.level} onChange={e => setFeeForm(p => ({ ...p, level: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              
+              {/* Department field with dropdown and create option */}
+              {showNewDeptInput ? (
+                <div className="flex gap-2">
+                  <input 
+                    placeholder="New department name" 
+                    value={feeForm.department} 
+                    onChange={e => setFeeForm(p => ({ ...p, department: e.target.value }))} 
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <button
+                    onClick={() => setShowNewDeptInput(false)}
+                    className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <select
+                    value={feeForm.department}
+                    onChange={e => setFeeForm(p => ({ ...p, department: e.target.value }))}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select department</option>
+                    {departments.map(dept => (
+                      <option key={dept} value={dept}>{dept}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => setShowNewDeptInput(true)}
+                    className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition"
+                    title="Create new department"
+                  >
+                    +
+                  </button>
+                </div>
+              )}
+
+              {/* Level field with dropdown and create option */}
+              {showNewLevelInput ? (
+                <div className="flex gap-2">
+                  <input 
+                    placeholder="New level (e.g., 500)" 
+                    value={feeForm.level} 
+                    onChange={e => setFeeForm(p => ({ ...p, level: e.target.value }))} 
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <button
+                    onClick={() => setShowNewLevelInput(false)}
+                    className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <select
+                    value={feeForm.level}
+                    onChange={e => setFeeForm(p => ({ ...p, level: e.target.value }))}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select level</option>
+                    {levels.map(lvl => (
+                      <option key={lvl} value={lvl}>{lvl}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => setShowNewLevelInput(true)}
+                    className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition"
+                    title="Create new level"
+                  >
+                    +
+                  </button>
+                </div>
+              )}
+
               <input placeholder="Academic session (e.g., 2024/2025)" value={feeForm.academic_session} onChange={e => setFeeForm(p => ({ ...p, academic_session: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
             </div>
             <button
@@ -761,6 +865,8 @@ const AdminDashboard = () => {
                   }
                   setFeeForm({ name: '', amount: '', department: '', level: '', academic_session: '' });
                   setEditingFeeId(null);
+                  setShowNewDeptInput(false);
+                  setShowNewLevelInput(false);
                   const d = await getAllFees();
                   setFeesData(d.fees || []);
                 } catch (err) {
