@@ -67,6 +67,86 @@ router.get('/students', async (req, res) => {
   }
 });
 
+// All users with pagination
+router.get('/users', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+
+    const users = await database.db('users')
+      .select('id', 'email', 'first_name', 'last_name', 'matric_number', 'user_type', 'department', 'level', 'is_verified', 'created_at')
+      .orderBy('created_at', 'desc')
+      .limit(limit)
+      .offset(offset);
+
+    const totalCount = await database.db('users').count('* as count').first();
+    const totalPages = Math.ceil(totalCount.count / limit);
+
+    res.json({
+      success: true,
+      users,
+      pagination: {
+        page,
+        limit,
+        total: totalCount.count,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Reports with filters
+router.get('/reports', async (req, res) => {
+  try {
+    const { start_date, end_date, department, session } = req.query;
+    
+    let query = database.db('transactions')
+      .join('users', 'transactions.user_id', 'users.id')
+      .select(
+        'transactions.*',
+        'users.first_name',
+        'users.last_name',
+        'users.matric_number',
+        'users.department',
+        'users.level'
+      )
+      .where('transactions.status', 'completed');
+
+    if (start_date) {
+      query = query.where('transactions.created_at', '>=', start_date);
+    }
+    if (end_date) {
+      query = query.where('transactions.created_at', '<=', end_date);
+    }
+    if (department) {
+      query = query.where('users.department', department);
+    }
+
+    const transactions = await query.orderBy('transactions.created_at', 'desc');
+
+    // Calculate summary
+    const totalAmount = transactions.reduce((sum, t) => sum + Number(t.amount || 0), 0);
+    const uniqueStudents = new Set(transactions.map(t => t.user_id)).size;
+
+    res.json({
+      success: true,
+      summary: {
+        total_amount: totalAmount,
+        total_transactions: transactions.length,
+        unique_students: uniqueStudents
+      },
+      transactions
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // Download receipt
 router.get('/receipt/:receipt_number', async (req, res) => {
   try {
