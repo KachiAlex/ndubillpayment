@@ -191,4 +191,226 @@ router.get('/receipt/:receipt_number', async (req, res) => {
   }
 });
 
+// Search student payments
+router.get('/search-student', async (req, res) => {
+  try {
+    const { student_id, department } = req.query;
+    
+    let query = database.db('transactions')
+      .join('users', 'transactions.user_id', 'users.id')
+      .select(
+        'transactions.*',
+        'users.first_name',
+        'users.last_name',
+        'users.matric_number',
+        'users.department'
+      );
+
+    if (student_id) {
+      query = query.where('users.matric_number', 'like', `%${student_id}%`);
+    }
+    if (department) {
+      query = query.where('users.department', department);
+    }
+
+    const transactions = await query.orderBy('transactions.created_at', 'desc');
+
+    const totalAmount = transactions.reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+    res.json({
+      success: true,
+      transactions,
+      summary: {
+        total_amount: totalAmount,
+        transaction_count: transactions.length
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Reconcile payments
+router.post('/reconcile', async (req, res) => {
+  try {
+    const { start_date, end_date } = req.body;
+    
+    if (!start_date || !end_date) {
+      return res.status(400).json({ success: false, error: 'Start date and end date are required' });
+    }
+
+    const transactions = await database.db('transactions')
+      .whereBetween('created_at', [start_date, end_date])
+      .where('status', 'completed');
+
+    const totalAmount = transactions.reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+    res.json({
+      success: true,
+      total_amount: totalAmount,
+      transaction_count: transactions.length
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Export transactions to Excel (placeholder - needs actual Excel library)
+router.get('/export/excel', async (req, res) => {
+  try {
+    const { start_date, end_date, department, session } = req.query;
+    
+    let query = database.db('transactions')
+      .join('users', 'transactions.user_id', 'users.id')
+      .select(
+        'transactions.*',
+        'users.first_name',
+        'users.last_name',
+        'users.matric_number',
+        'users.department',
+        'users.level'
+      );
+
+    if (start_date) {
+      query = query.where('transactions.created_at', '>=', start_date);
+    }
+    if (end_date) {
+      query = query.where('transactions.created_at', '<=', end_date);
+    }
+    if (department) {
+      query = query.where('users.department', department);
+    }
+
+    const transactions = await query.orderBy('transactions.created_at', 'desc');
+
+    // For now, return JSON. Excel export would require a library like exceljs
+    res.json({
+      success: true,
+      transactions,
+      message: 'Excel export library not yet implemented'
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Export transactions to CSV (placeholder)
+router.get('/export/csv', async (req, res) => {
+  try {
+    const { start_date, end_date, department, session } = req.query;
+    
+    let query = database.db('transactions')
+      .join('users', 'transactions.user_id', 'users.id')
+      .select(
+        'transactions.*',
+        'users.first_name',
+        'users.last_name',
+        'users.matric_number',
+        'users.department',
+        'users.level'
+      );
+
+    if (start_date) {
+      query = query.where('transactions.created_at', '>=', start_date);
+    }
+    if (end_date) {
+      query = query.where('transactions.created_at', '<=', end_date);
+    }
+    if (department) {
+      query = query.where('users.department', department);
+    }
+
+    const transactions = await query.orderBy('transactions.created_at', 'desc');
+
+    // For now, return JSON. CSV export would require proper CSV generation
+    res.json({
+      success: true,
+      transactions,
+      message: 'CSV export not yet implemented'
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Export paid students to Excel (placeholder)
+router.get('/export/paid-students/excel', async (req, res) => {
+  try {
+    const { start_date, end_date, department, session } = req.query;
+    
+    let query = database.db('transactions')
+      .join('users', 'transactions.user_id', 'users.id')
+      .select(
+        'users.id',
+        'users.matric_number',
+        'users.first_name',
+        'users.last_name',
+        'users.department',
+        'users.level'
+      )
+      .where('transactions.status', 'completed')
+      .groupBy('users.id', 'users.matric_number', 'users.first_name', 'users.last_name', 'users.department', 'users.level');
+
+    if (start_date) {
+      query = query.where('transactions.created_at', '>=', start_date);
+    }
+    if (end_date) {
+      query = query.where('transactions.created_at', '<=', end_date);
+    }
+    if (department) {
+      query = query.where('users.department', department);
+    }
+
+    const students = await query;
+
+    res.json({
+      success: true,
+      students,
+      message: 'Excel export library not yet implemented'
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Export paid students to CSV (placeholder)
+router.get('/export/paid-students/csv', async (req, res) => {
+  try {
+    const { start_date, end_date, department, session } = req.query;
+    
+    let query = database.db('transactions')
+      .join('users', 'transactions.user_id', 'users.id')
+      .select(
+        'users.id',
+        'users.matric_number',
+        'users.first_name',
+        'users.last_name',
+        'users.department',
+        'users.level'
+      )
+      .where('transactions.status', 'completed')
+      .groupBy('users.id', 'users.matric_number', 'users.first_name', 'users.last_name', 'users.department', 'users.level');
+
+    if (start_date) {
+      query = query.where('transactions.created_at', '>=', start_date);
+    }
+    if (end_date) {
+      query = query.where('transactions.created_at', '<=', end_date);
+    }
+    if (department) {
+      query = query.where('users.department', department);
+    }
+
+    const students = await query;
+
+    res.json({
+      success: true,
+      students,
+      message: 'CSV export not yet implemented'
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 module.exports = router;

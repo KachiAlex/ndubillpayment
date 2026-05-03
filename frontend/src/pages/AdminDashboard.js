@@ -35,7 +35,7 @@ const AdminDashboard = () => {
   const { data: departmentsData } = useQuery(
     ['departments'],
     async () => {
-      const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/admin/departments`, {
+      const response = await fetch('/api/admin/departments', {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
       return response.json();
@@ -47,7 +47,7 @@ const AdminDashboard = () => {
   const { data: levelsData } = useQuery(
     ['levels'],
     async () => {
-      const response = await fetch(`${process.env.REACT_APP_API_URL || '/api'}/admin/levels`, {
+      const response = await fetch('/api/admin/levels', {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
       return response.json();
