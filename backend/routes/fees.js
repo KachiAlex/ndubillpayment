@@ -101,6 +101,48 @@ router.delete('/:id', authenticateJWT, authorizeRoles('bursar', 'admin'), async 
   }
 });
 
+// ── BURSAR: Bulk assign fee to students ──
+router.post('/:id/assign', authenticateJWT, authorizeRoles('bursar', 'admin'), async (req, res) => {
+  try {
+    const { department, level, session } = req.body;
+    const feeId = req.params.id;
+
+    const fee = await database.db('fees').where({ id: feeId }).first();
+    if (!fee) return res.status(404).json({ success: false, error: 'Fee not found' });
+
+    let query = database.db('users').where({ user_type: 'student' });
+    
+    if (department) query = query.where('department', department);
+    if (level) query = query.where('level', level);
+    if (session) query = query.where('session', session);
+
+    const students = await query.select('id');
+    const studentIds = students.map(s => s.id);
+
+    if (studentIds.length === 0) {
+      return res.json({ success: true, message: 'No students match the criteria', assigned_count: 0 });
+    }
+
+    const assignedCount = studentIds.length;
+
+    await AuditLogger.log({
+      action: 'bulk_fee_assigned',
+      userId: req.user.id,
+      userEmail: req.user.email,
+      userType: req.user.user_type,
+      entityType: 'fee',
+      entityId: feeId,
+      newValues: { fee_id: feeId, department, level, session, student_count: assignedCount },
+      req
+    });
+
+    res.json({ success: true, message: `Fee assigned to ${assignedCount} students`, assigned_count: assignedCount });
+  } catch (err) {
+    console.error('[fees] bulk assign error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // ── STUDENT: List applicable fees ──
 router.get('/', authenticateJWT, authorizeRoles('student'), async (req, res) => {
   try {

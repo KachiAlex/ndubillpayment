@@ -3,6 +3,8 @@ const database = require('../utils/database');
 const { authenticateJWT, authorizeRoles } = require('../middleware/auth');
 const ExcelJS = require('exceljs');
 const AuditLogger = require('../utils/audit');
+const { checkOverduePayments, sendUpcomingReminders } = require('../utils/paymentReminders');
+const { createBackup, listBackups } = require('../utils/backup');
 
 const router = express.Router();
 
@@ -152,10 +154,9 @@ router.get('/reports', async (req, res) => {
 // Get all unique departments (public)
 router.get('/departments', async (req, res) => {
   try {
-    const departments = await database.db('users')
-      .distinct('department')
-      .orderBy('department', 'asc')
-      .pluck('department');
+    const departments = await database.db('departments')
+      .orderBy('name', 'asc')
+      .pluck('name');
     
     res.json({ success: true, departments });
   } catch (err) {
@@ -167,28 +168,28 @@ router.get('/departments', async (req, res) => {
 router.post('/departments', async (req, res) => {
   try {
     const { department } = req.body;
-    
+
     if (!department) {
       return res.status(400).json({ success: false, error: 'Department name is required' });
     }
 
     // Check if department already exists
-    const existing = await database.db('users').where({ department }).first();
+    const existing = await database.db('departments').where({ name: department }).first();
     if (existing) {
       return res.json({ success: true, department, message: 'Department already exists' });
     }
 
-    // Insert a placeholder user with the new department to make it available
-    await database.db('users').insert({
-      matric_number: `TEMP_${Date.now()}`,
-      email: `temp_${Date.now()}@placeholder.com`,
-      password_hash: '$2a$10$placeholder',
-      first_name: 'Placeholder',
-      last_name: 'User',
-      department,
-      level: '100',
-      user_type: 'student',
-      is_verified: false
+    // Insert into departments table
+    await database.db('departments').insert({ name: department });
+
+    await AuditLogger.log({
+      action: 'department_created',
+      userId: req.user.id,
+      userEmail: req.user.email,
+      userType: req.user.user_type,
+      entityType: 'department',
+      newValues: { name: department },
+      req
     });
 
     res.json({ success: true, department });
@@ -200,10 +201,9 @@ router.post('/departments', async (req, res) => {
 // Get all unique levels
 router.get('/levels', async (req, res) => {
   try {
-    const levels = await database.db('users')
-      .distinct('level')
-      .orderBy('level', 'asc')
-      .pluck('level');
+    const levels = await database.db('levels')
+      .orderBy('name', 'asc')
+      .pluck('name');
     
     res.json({ success: true, levels });
   } catch (err) {
@@ -215,28 +215,28 @@ router.get('/levels', async (req, res) => {
 router.post('/levels', async (req, res) => {
   try {
     const { level } = req.body;
-    
+
     if (!level) {
       return res.status(400).json({ success: false, error: 'Level is required' });
     }
 
     // Check if level already exists
-    const existing = await database.db('users').where({ level }).first();
+    const existing = await database.db('levels').where({ name: level }).first();
     if (existing) {
       return res.json({ success: true, level, message: 'Level already exists' });
     }
 
-    // Insert a placeholder user with the new level to make it available
-    await database.db('users').insert({
-      matric_number: `TEMP_${Date.now()}`,
-      email: `temp_${Date.now()}@placeholder.com`,
-      password_hash: '$2a$10$placeholder',
-      first_name: 'Placeholder',
-      last_name: 'User',
-      department: 'Computer Science',
-      level,
-      user_type: 'student',
-      is_verified: false
+    // Insert into levels table
+    await database.db('levels').insert({ name: level });
+
+    await AuditLogger.log({
+      action: 'level_created',
+      userId: req.user.id,
+      userEmail: req.user.email,
+      userType: req.user.user_type,
+      entityType: 'level',
+      newValues: { name: level },
+      req
     });
 
     res.json({ success: true, level });
@@ -248,11 +248,9 @@ router.post('/levels', async (req, res) => {
 // Get all unique academic sessions
 router.get('/academic-sessions', async (req, res) => {
   try {
-    const sessions = await database.db('fees')
-      .distinct('academic_session')
-      .whereNotNull('academic_session')
-      .orderBy('academic_session', 'desc')
-      .pluck('academic_session');
+    const sessions = await database.db('sessions')
+      .orderBy('name', 'desc')
+      .pluck('name');
     
     res.json({ success: true, sessions });
   } catch (err) {
@@ -264,25 +262,28 @@ router.get('/academic-sessions', async (req, res) => {
 router.post('/academic-sessions', async (req, res) => {
   try {
     const { academic_session } = req.body;
-    
+
     if (!academic_session) {
       return res.status(400).json({ success: false, error: 'Academic session is required' });
     }
 
     // Check if session already exists
-    const existing = await database.db('fees').where({ academic_session }).first();
+    const existing = await database.db('sessions').where({ name: academic_session }).first();
     if (existing) {
       return res.json({ success: true, academic_session, message: 'Academic session already exists' });
     }
 
-    // Insert a placeholder fee with the new session to make it available
-    await database.db('fees').insert({
-      name: 'Placeholder Fee',
-      amount: 0,
-      department: 'Computer Science',
-      level: '100',
-      academic_session,
-      is_active: false
+    // Insert into sessions table
+    await database.db('sessions').insert({ name: academic_session });
+
+    await AuditLogger.log({
+      action: 'session_created',
+      userId: req.user.id,
+      userEmail: req.user.email,
+      userType: req.user.user_type,
+      entityType: 'session',
+      newValues: { name: academic_session },
+      req
     });
 
     res.json({ success: true, academic_session });
@@ -706,6 +707,206 @@ router.get('/audit-logs', async (req, res) => {
     res.json({ success: true, logs });
   } catch (err) {
     console.error('[admin] audit logs error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ── BURSAR: Bulk create students ──
+router.post('/students/bulk', async (req, res) => {
+  const trx = await database.db.transaction();
+  try {
+    const { students } = req.body; // Array of student objects
+    
+    if (!Array.isArray(students) || students.length === 0) {
+      await trx.rollback();
+      return res.status(400).json({ success: false, error: 'students must be a non-empty array' });
+    }
+
+    const bcrypt = require('bcryptjs');
+    const { v4: uuidv4 } = require('uuid');
+
+    const createdStudents = [];
+    const errors = [];
+
+    for (let i = 0; i < students.length; i++) {
+      const student = students[i];
+      
+      try {
+        // Validate required fields
+        if (!student.matric_number || !student.email || !student.password || !student.first_name || !student.last_name || !student.department || !student.level || !student.session) {
+          errors.push({ index: i, error: 'Missing required fields', student });
+          continue;
+        }
+
+        // Check for existing user
+        const existing = await trx('users').where({ email: student.email.toLowerCase() }).orWhere({ matric_number: student.matric_number.toUpperCase() }).first();
+        if (existing) {
+          errors.push({ index: i, error: 'Email or matric number already exists', student });
+          continue;
+        }
+
+        const password_hash = await bcrypt.hash(student.password, 10);
+
+        const [user] = await trx('users').insert({
+          matric_number: student.matric_number.toUpperCase(),
+          email: student.email.toLowerCase(),
+          password_hash,
+          first_name: student.first_name,
+          last_name: student.last_name,
+          department: student.department,
+          level: student.level,
+          session: student.session,
+          user_type: 'student'
+        }).returning('*');
+
+        // Create wallet
+        await trx('wallets').insert({ user_id: user.id, balance: 0, currency: 'NGN' });
+
+        createdStudents.push({ id: user.id, email: user.email, matric_number: user.matric_number, first_name: user.first_name, last_name: user.last_name });
+      } catch (err) {
+        errors.push({ index: i, error: err.message, student });
+      }
+    }
+
+    await trx.commit();
+
+    await AuditLogger.log({
+      action: 'bulk_students_created',
+      userId: req.user.id,
+      userEmail: req.user.email,
+      userType: req.user.user_type,
+      entityType: 'user',
+      newValues: { created_count: createdStudents.length, error_count: errors.length },
+      req
+    });
+
+    res.json({ success: true, created_count: createdStudents.length, created_students: createdStudents, errors });
+  } catch (err) {
+    await trx.rollback();
+    console.error('[admin] bulk student creation error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ── BURSAR: Bulk update students ──
+router.put('/students/bulk', async (req, res) => {
+  try {
+    const { student_ids, updates } = req.body; // student_ids: array of IDs, updates: object with fields to update
+    
+    if (!Array.isArray(student_ids) || student_ids.length === 0) {
+      return res.status(400).json({ success: false, error: 'student_ids must be a non-empty array' });
+    }
+
+    if (!updates || Object.keys(updates).length === 0) {
+      return res.status(400).json({ success: false, error: 'No fields to update' });
+    }
+
+    const allowedFields = ['department', 'level', 'session', 'first_name', 'last_name'];
+    const updateData = {};
+    for (const key of Object.keys(updates)) {
+      if (allowedFields.includes(key)) {
+        updateData[key] = updates[key];
+      }
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ success: false, error: 'No valid fields to update' });
+    }
+
+    const updatedCount = await database.db('users')
+      .whereIn('id', student_ids)
+      .update(updateData);
+
+    await AuditLogger.log({
+      action: 'bulk_students_updated',
+      userId: req.user.id,
+      userEmail: req.user.email,
+      userType: req.user.user_type,
+      entityType: 'user',
+      newValues: { updated_count: updatedCount, updates: updateData },
+      req
+    });
+
+    res.json({ success: true, updated_count });
+  } catch (err) {
+    console.error('[admin] bulk student update error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ── BURSAR: Trigger payment reminders ──
+router.post('/payment-reminders/send', async (req, res) => {
+  try {
+    await sendUpcomingReminders();
+    
+    await AuditLogger.log({
+      action: 'payment_reminders_sent',
+      userId: req.user.id,
+      userEmail: req.user.email,
+      userType: req.user.user_type,
+      entityType: 'system',
+      newValues: { type: 'upcoming_reminders' },
+      req
+    });
+
+    res.json({ success: true, message: 'Payment reminders sent successfully' });
+  } catch (err) {
+    console.error('[admin] payment reminders error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ── BURSAR: Check overdue payments ──
+router.post('/payment-reminders/check-overdue', async (req, res) => {
+  try {
+    await checkOverduePayments();
+    
+    await AuditLogger.log({
+      action: 'overdue_payments_checked',
+      userId: req.user.id,
+      userEmail: req.user.email,
+      userType: req.user.user_type,
+      entityType: 'system',
+      newValues: { type: 'late_fee_check' },
+      req
+    });
+
+    res.json({ success: true, message: 'Overdue payments checked successfully' });
+  } catch (err) {
+    console.error('[admin] overdue check error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ── BURSAR: Create database backup ──
+router.post('/backup/create', async (req, res) => {
+  try {
+    const result = await createBackup();
+    
+    await AuditLogger.log({
+      action: 'backup_created',
+      userId: req.user.id,
+      userEmail: req.user.email,
+      userType: req.user.user_type,
+      entityType: 'system',
+      newValues: { file: result.file },
+      req
+    });
+
+    res.json({ success: true, message: 'Backup created successfully', file: result.file });
+  } catch (err) {
+    console.error('[admin] backup create error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ── BURSAR: List database backups ──
+router.get('/backup/list', async (req, res) => {
+  try {
+    const result = await listBackups();
+    res.json({ success: true, backups: result.backups });
+  } catch (err) {
+    console.error('[admin] backup list error:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
