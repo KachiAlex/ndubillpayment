@@ -7,6 +7,8 @@ import Layout from './components/Layout';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import StudentDashboard from './pages/StudentDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import Wallet from './pages/Wallet';
@@ -53,6 +55,14 @@ function AppRoutes() {
       <Route 
         path="/signup" 
         element={user ? <Navigate to="/dashboard" replace /> : <Signup />} 
+      />
+      <Route 
+        path="/forgot-password" 
+        element={user ? <Navigate to="/dashboard" replace /> : <ForgotPassword />} 
+      />
+      <Route 
+        path="/reset-password" 
+        element={user ? <Navigate to="/dashboard" replace /> : <ResetPassword />} 
       />
       <Route 
         path="/payment/callback" 

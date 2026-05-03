@@ -133,6 +133,12 @@ const Login = () => {
 
           <div className="mt-6 text-center">
             <Link 
+              to="/forgot-password" 
+              className="flex items-center justify-center text-blue-600 hover:text-blue-700 font-medium mb-4"
+            >
+              Forgot your password?
+            </Link>
+            <Link 
               to="/signup" 
               className="flex items-center justify-center text-blue-600 hover:text-blue-700 font-medium"
             >

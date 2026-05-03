@@ -2,6 +2,8 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Joi = require('joi');
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
 const database = require('../utils/database');
 const { authenticateJWT } = require('../middleware/auth');
 const { validate } = require('../middleware/validation');
@@ -24,6 +26,26 @@ const registerSchema = Joi.object({
 const loginSchema = Joi.object({
   email: Joi.string().email().required(),
   password: Joi.string().required()
+});
+
+const forgotPasswordSchema = Joi.object({
+  email: Joi.string().email().required()
+});
+
+const resetPasswordSchema = Joi.object({
+  token: Joi.string().required(),
+  password: Joi.string().min(6).required()
+});
+
+// Email transporter configuration
+const transporter = nodemailer.createTransport({
+  host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+  port: process.env.EMAIL_PORT || 587,
+  secure: false,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
 });
 
 function generateToken(user) {
@@ -118,6 +140,117 @@ router.get('/me', authenticateJWT, async (req, res) => {
     res.json({ success: true, user: { id: user.id, email: user.email, first_name: user.first_name, last_name: user.last_name, matric_number: user.matric_number, user_type: user.user_type, department: user.department, level: user.level } });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Request password reset
+router.post('/forgot-password', validate(forgotPasswordSchema), async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await database.db('users').where({ email: email.toLowerCase() }).first();
+    
+    if (!user) {
+      // Don't reveal if user exists for security
+      return res.json({ success: true, message: 'If the email exists, a reset link has been sent' });
+    }
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 3600000); // 1 hour from now
+
+    // Delete any existing reset tokens for this user
+    await database.db('password_resets').where({ user_id: user.id }).del();
+
+    // Insert new reset token
+    await database.db('password_resets').insert({
+      user_id: user.id,
+      token: resetToken,
+      expires_at: expiresAt
+    });
+
+    // Send email with reset link
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
+    
+    const mailOptions = {
+      from: process.env.EMAIL_FROM || 'noreply@ndu.edu.ng',
+      to: user.email,
+      subject: 'Password Reset Request - NDU Portal',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">Password Reset Request</h2>
+          <p>Hello ${user.first_name},</p>
+          <p>You requested a password reset for your NDU Portal account.</p>
+          <p>Click the link below to reset your password:</p>
+          <a href="${resetUrl}" style="display: inline-block; padding: 12px 24px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 4px; margin: 16px 0;">Reset Password</a>
+          <p>This link will expire in 1 hour.</p>
+          <p>If you didn't request this password reset, please ignore this email.</p>
+          <p>Best regards,<br>NDU Portal Team</p>
+        </div>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+
+    res.json({ success: true, message: 'If the email exists, a reset link has been sent' });
+  } catch (err) {
+    console.error('[FORGOT PASSWORD ERROR]', err.message);
+    res.status(500).json({ success: false, error: 'Failed to send reset email' });
+  }
+});
+
+// Verify reset token
+router.get('/verify-reset-token', async (req, res) => {
+  try {
+    const { token } = req.query;
+    
+    const reset = await database.db('password_resets')
+      .where({ token })
+      .where('expires_at', '>', new Date())
+      .whereNull('used_at')
+      .first();
+
+    if (!reset) {
+      return res.json({ success: false, error: 'Invalid or expired reset token' });
+    }
+
+    res.json({ success: true, valid: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Reset password
+router.post('/reset-password', validate(resetPasswordSchema), async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    
+    const reset = await database.db('password_resets')
+      .where({ token })
+      .where('expires_at', '>', new Date())
+      .whereNull('used_at')
+      .first();
+
+    if (!reset) {
+      return res.status(400).json({ success: false, error: 'Invalid or expired reset token' });
+    }
+
+    // Hash new password
+    const password_hash = await bcrypt.hash(password, 10);
+
+    // Update user password
+    await database.db('users')
+      .where({ id: reset.user_id })
+      .update({ password_hash });
+
+    // Mark reset token as used
+    await database.db('password_resets')
+      .where({ id: reset.id })
+      .update({ used_at: new Date() });
+
+    res.json({ success: true, message: 'Password reset successful' });
+  } catch (err) {
+    console.error('[RESET PASSWORD ERROR]', err.message);
+    res.status(500).json({ success: false, error: 'Failed to reset password' });
   }
 });
 
