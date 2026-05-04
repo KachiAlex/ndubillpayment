@@ -34,6 +34,10 @@ const AdminDashboard = () => {
   const [showDeptManager, setShowDeptManager] = useState(false);
   const [showLevelManager, setShowLevelManager] = useState(false);
   const [showSessionManager, setShowSessionManager] = useState(false);
+  const [deptSearch, setDeptSearch] = useState('');
+  const [levelSearch, setLevelSearch] = useState('');
+  const [sessionSearch, setSessionSearch] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchJson = async (url, options = {}) => {
     const response = await fetch(url, {
@@ -92,29 +96,31 @@ const AdminDashboard = () => {
   };
 
   const handleSaveNewDepartment = async () => {
-    if (!feeForm.department) {
-      toast.error('Please enter a department name');
-      return;
-    }
+    if (!feeForm.department.trim()) return;
     try {
       const response = await fetch('/api/admin/departments', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          Authorization: `Bearer ${localStorage.getItem('token')}`
         },
-        body: JSON.stringify({ department: feeForm.department })
+        body: JSON.stringify({ department: feeForm.department.trim() })
       });
       const data = await response.json();
       if (data.success) {
-        toast.success('Department saved successfully');
+        toast.success('Department added successfully');
         setFeeForm(p => ({ ...p, department: '' }));
+        setShowNewDeptInput(false);
         await refreshFeeMetadata();
       } else {
-        toast.error(data.error || 'Failed to save department');
+        if (data.message && data.message.includes('already exists')) {
+          toast.warning('Department already exists');
+        } else {
+          toast.error(data.error || 'Failed to add department');
+        }
       }
     } catch (error) {
-      toast.error('Failed to save department');
+      toast.error('Failed to add department');
     }
   };
 
@@ -128,20 +134,25 @@ const AdminDashboard = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          Authorization: `Bearer ${localStorage.getItem('token')}`
         },
-        body: JSON.stringify({ level: feeForm.level })
+        body: JSON.stringify({ level: feeForm.level.trim() })
       });
       const data = await response.json();
       if (data.success) {
-        toast.success('Level saved successfully');
+        toast.success('Level added successfully');
         setFeeForm(p => ({ ...p, level: '' }));
+        setShowNewLevelInput(false);
         await refreshFeeMetadata();
       } else {
-        toast.error(data.error || 'Failed to save level');
+        if (data.message && data.message.includes('already exists')) {
+          toast.warning('Level already exists');
+        } else {
+          toast.error(data.error || 'Failed to add level');
+        }
       }
     } catch (error) {
-      toast.error('Failed to save level');
+      toast.error('Failed to add level');
     }
   };
 
@@ -155,28 +166,53 @@ const AdminDashboard = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          Authorization: `Bearer ${localStorage.getItem('token')}`
         },
-        body: JSON.stringify({ academic_session: feeForm.academic_session })
+        body: JSON.stringify({ academic_session: feeForm.academic_session.trim() })
       });
       const data = await response.json();
       if (data.success) {
-        toast.success('Academic session saved successfully');
+        toast.success('Academic session added successfully');
         setFeeForm(p => ({ ...p, academic_session: '' }));
+        setShowNewSessionInput(false);
         await refreshFeeMetadata();
       } else {
-        toast.error(data.error || 'Failed to save academic session');
+        if (data.message && data.message.includes('already exists')) {
+          toast.warning('Academic session already exists');
+        } else {
+          toast.error(data.error || 'Failed to add academic session');
+        }
       }
     } catch (error) {
-      toast.error('Failed to save academic session');
+      toast.error('Failed to add academic session');
     }
   };
 
   const handleDeleteDepartment = async (department) => {
-    if (!window.confirm(`Delete department "${department.name}"?`)) {
-      return;
+    try {
+      const impactRes = await fetch(`/api/admin/departments/${department.id}/impact`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      const impactData = await impactRes.json();
+      
+      let message = `Delete department "${department.name}"?`;
+      if (impactData.success && (impactData.impact.fees > 0 || impactData.impact.students > 0)) {
+        message += `\n\nThis will affect:\n`;
+        if (impactData.impact.fees > 0) message += `- ${impactData.impact.fees} fee(s)\n`;
+        if (impactData.impact.students > 0) message += `- ${impactData.impact.students} student(s)\n`;
+        message += '\nAre you sure?';
+      }
+      
+      if (!window.confirm(message)) {
+        return;
+      }
+    } catch (error) {
+      if (!window.confirm(`Delete department "${department.name}"?`)) {
+        return;
+      }
     }
 
+    setIsDeleting(true);
     try {
       const response = await fetch(`/api/admin/departments/${department.id}`, {
         method: 'DELETE',
@@ -196,14 +232,36 @@ const AdminDashboard = () => {
       }
     } catch (error) {
       toast.error('Failed to delete department');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   const handleDeleteLevel = async (level) => {
-    if (!window.confirm(`Delete level "${level.name}"?`)) {
-      return;
+    try {
+      const impactRes = await fetch(`/api/admin/levels/${level.id}/impact`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      const impactData = await impactRes.json();
+      
+      let message = `Delete level "${level.name}"?`;
+      if (impactData.success && (impactData.impact.fees > 0 || impactData.impact.students > 0)) {
+        message += `\n\nThis will affect:\n`;
+        if (impactData.impact.fees > 0) message += `- ${impactData.impact.fees} fee(s)\n`;
+        if (impactData.impact.students > 0) message += `- ${impactData.impact.students} student(s)\n`;
+        message += '\nAre you sure?';
+      }
+      
+      if (!window.confirm(message)) {
+        return;
+      }
+    } catch (error) {
+      if (!window.confirm(`Delete level "${level.name}"?`)) {
+        return;
+      }
     }
 
+    setIsDeleting(true);
     try {
       const response = await fetch(`/api/admin/levels/${level.id}`, {
         method: 'DELETE',
@@ -223,14 +281,36 @@ const AdminDashboard = () => {
       }
     } catch (error) {
       toast.error('Failed to delete level');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   const handleDeleteSession = async (session) => {
-    if (!window.confirm(`Delete academic session "${session.name}"?`)) {
-      return;
+    try {
+      const impactRes = await fetch(`/api/admin/academic-sessions/${session.id}/impact`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      const impactData = await impactRes.json();
+      
+      let message = `Delete academic session "${session.name}"?`;
+      if (impactData.success && (impactData.impact.fees > 0 || impactData.impact.students > 0)) {
+        message += `\n\nThis will affect:\n`;
+        if (impactData.impact.fees > 0) message += `- ${impactData.impact.fees} fee(s)\n`;
+        if (impactData.impact.students > 0) message += `- ${impactData.impact.students} student(s)\n`;
+        message += '\nAre you sure?';
+      }
+      
+      if (!window.confirm(message)) {
+        return;
+      }
+    } catch (error) {
+      if (!window.confirm(`Delete academic session "${session.name}"?`)) {
+        return;
+      }
     }
 
+    setIsDeleting(true);
     try {
       const response = await fetch(`/api/admin/academic-sessions/${session.id}`, {
         method: 'DELETE',
@@ -250,6 +330,8 @@ const AdminDashboard = () => {
       }
     } catch (error) {
       toast.error('Failed to delete academic session');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -264,6 +346,30 @@ const AdminDashboard = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setShowDeptManager(false);
+        setShowLevelManager(false);
+        setShowSessionManager(false);
+        setShowNewDeptInput(false);
+        setShowNewLevelInput(false);
+        setShowNewSessionInput(false);
+        setDeptSearch('');
+        setLevelSearch('');
+        setSessionSearch('');
+      }
+      if (e.key === 'Enter') {
+        if (showNewDeptInput) handleSaveNewDepartment();
+        if (showNewLevelInput) handleSaveNewLevel();
+        if (showNewSessionInput) handleSaveNewSession();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showNewDeptInput, showNewLevelInput, showNewSessionInput, feeForm]);
 
   // Fetch reports data
   const { data: reportsData, isLoading: reportsLoading, refetch: refetchReports } = useQuery(
@@ -1219,15 +1325,25 @@ const AdminDashboard = () => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-4 shadow-xl">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Manage Departments</h3>
+            <input
+              type="text"
+              placeholder="Search departments..."
+              value={deptSearch}
+              onChange={e => setDeptSearch(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mb-4"
+            />
             <div className="space-y-2 max-h-60 overflow-y-auto">
-              {departments.length > 0 ? departments.map(dept => (
+              {departments.length > 0 ? departments
+                .filter(dept => dept.name.toLowerCase().includes(deptSearch.toLowerCase()))
+                .map(dept => (
                 <div key={dept.id} className="flex items-center justify-between gap-3 bg-gray-50 px-3 py-2 rounded-lg">
                   <span className="text-sm text-gray-700">{dept.name}</span>
                   <button
                     onClick={() => handleDeleteDepartment(dept)}
-                    className="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded transition"
+                    disabled={isDeleting}
+                    className="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded transition disabled:opacity-50"
                   >
-                    Remove
+                    {isDeleting ? '...' : 'Remove'}
                   </button>
                 </div>
               )) : (
@@ -1235,7 +1351,7 @@ const AdminDashboard = () => {
               )}
             </div>
             <button
-              onClick={() => setShowDeptManager(false)}
+              onClick={() => { setShowDeptManager(false); setDeptSearch(''); }}
               className="mt-4 w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
             >
               Close
@@ -1249,15 +1365,25 @@ const AdminDashboard = () => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-4 shadow-xl">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Manage Levels</h3>
+            <input
+              type="text"
+              placeholder="Search levels..."
+              value={levelSearch}
+              onChange={e => setLevelSearch(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mb-4"
+            />
             <div className="space-y-2 max-h-60 overflow-y-auto">
-              {levels.length > 0 ? levels.map(level => (
+              {levels.length > 0 ? levels
+                .filter(level => level.name.toLowerCase().includes(levelSearch.toLowerCase()))
+                .map(level => (
                 <div key={level.id} className="flex items-center justify-between gap-3 bg-gray-50 px-3 py-2 rounded-lg">
                   <span className="text-sm text-gray-700">{level.name}</span>
                   <button
                     onClick={() => handleDeleteLevel(level)}
-                    className="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded transition"
+                    disabled={isDeleting}
+                    className="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded transition disabled:opacity-50"
                   >
-                    Remove
+                    {isDeleting ? '...' : 'Remove'}
                   </button>
                 </div>
               )) : (
@@ -1265,7 +1391,7 @@ const AdminDashboard = () => {
               )}
             </div>
             <button
-              onClick={() => setShowLevelManager(false)}
+              onClick={() => { setShowLevelManager(false); setLevelSearch(''); }}
               className="mt-4 w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
             >
               Close
@@ -1279,15 +1405,25 @@ const AdminDashboard = () => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-4 shadow-xl">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Manage Academic Sessions</h3>
+            <input
+              type="text"
+              placeholder="Search academic sessions..."
+              value={sessionSearch}
+              onChange={e => setSessionSearch(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mb-4"
+            />
             <div className="space-y-2 max-h-60 overflow-y-auto">
-              {academicSessions.length > 0 ? academicSessions.map(session => (
+              {academicSessions.length > 0 ? academicSessions
+                .filter(session => session.name.toLowerCase().includes(sessionSearch.toLowerCase()))
+                .map(session => (
                 <div key={session.id} className="flex items-center justify-between gap-3 bg-gray-50 px-3 py-2 rounded-lg">
                   <span className="text-sm text-gray-700">{session.name}</span>
                   <button
                     onClick={() => handleDeleteSession(session)}
-                    className="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded transition"
+                    disabled={isDeleting}
+                    className="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded transition disabled:opacity-50"
                   >
-                    Remove
+                    {isDeleting ? '...' : 'Remove'}
                   </button>
                 </div>
               )) : (
@@ -1295,7 +1431,7 @@ const AdminDashboard = () => {
               )}
             </div>
             <button
-              onClick={() => setShowSessionManager(false)}
+              onClick={() => { setShowSessionManager(false); setSessionSearch(''); }}
               className="mt-4 w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
             >
               Close

@@ -243,6 +243,27 @@ router.delete('/departments/:id', asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Department deleted successfully' });
 }));
 
+// Check delete impact for department
+router.get('/departments/:id/impact', asyncHandler(async (req, res) => {
+  const department = await database.db('departments').where({ id: req.params.id }).first();
+  if (!department) {
+    throw createHttpError(404, 'Department not found', 'DEPARTMENT_NOT_FOUND');
+  }
+
+  const [feeCount, studentCount] = await Promise.all([
+    database.db('fees').where({ department: department.name }).count('* as count').first(),
+    database.db('users').where({ department: department.name, user_type: 'student' }).count('* as count').first()
+  ]);
+
+  res.json({
+    success: true,
+    impact: {
+      fees: parseInt(feeCount.count),
+      students: parseInt(studentCount.count)
+    }
+  });
+}));
+
 // Get all unique levels
 router.get('/levels', asyncHandler(async (req, res) => {
   const levels = await database.db('levels')
@@ -309,6 +330,27 @@ router.delete('/levels/:id', asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Level deleted successfully' });
 }));
 
+// Check delete impact for level
+router.get('/levels/:id/impact', asyncHandler(async (req, res) => {
+  const level = await database.db('levels').where({ id: req.params.id }).first();
+  if (!level) {
+    throw createHttpError(404, 'Level not found', 'LEVEL_NOT_FOUND');
+  }
+
+  const [feeCount, studentCount] = await Promise.all([
+    database.db('fees').where({ level: level.name }).count('* as count').first(),
+    database.db('users').where({ level: level.name, user_type: 'student' }).count('* as count').first()
+  ]);
+
+  res.json({
+    success: true,
+    impact: {
+      fees: parseInt(feeCount.count),
+      students: parseInt(studentCount.count)
+    }
+  });
+}));
+
 // Get all unique academic sessions
 router.get('/academic-sessions', asyncHandler(async (req, res) => {
   const sessions = await database.db('sessions')
@@ -373,6 +415,27 @@ router.delete('/academic-sessions/:id', asyncHandler(async (req, res) => {
   });
 
   res.json({ success: true, message: 'Academic session deleted successfully' });
+}));
+
+// Check delete impact for academic session
+router.get('/academic-sessions/:id/impact', asyncHandler(async (req, res) => {
+  const session = await database.db('sessions').where({ id: req.params.id }).first();
+  if (!session) {
+    throw createHttpError(404, 'Academic session not found', 'SESSION_NOT_FOUND');
+  }
+
+  const [feeCount, studentCount] = await Promise.all([
+    database.db('fees').where({ academic_session: session.name }).count('* as count').first(),
+    database.db('users').where({ session: session.name, user_type: 'student' }).count('* as count').first()
+  ]);
+
+  res.json({
+    success: true,
+    impact: {
+      fees: parseInt(feeCount.count),
+      students: parseInt(studentCount.count)
+    }
+  });
 }));
 
 // Download receipt
