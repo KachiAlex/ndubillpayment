@@ -306,12 +306,15 @@ router.post('/forgot-password', validate(forgotPasswordSchema), asyncHandler(asy
 // Verify reset token
 router.get('/verify-reset-token', asyncHandler(async (req, res) => {
   const { token } = req.query;
+  console.log('[Verify Reset Token] Token:', token);
 
   const reset = await database.db('password_resets')
     .where({ token })
     .where('expires_at', '>', new Date())
     .whereNull('used_at')
     .first();
+
+  console.log('[Verify Reset Token] Reset record:', reset);
 
   if (!reset) {
     throw createHttpError(400, 'Invalid or expired reset token', 'INVALID_RESET_TOKEN');
