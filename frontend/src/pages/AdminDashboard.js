@@ -1000,6 +1000,7 @@ const AdminDashboard = () => {
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="">Select department</option>
+                    <option value="ALL">All departments</option>
                     {departments.map(dept => (
                       <option key={dept.id} value={dept.name}>{dept.name}</option>
                     ))}
@@ -1167,7 +1168,7 @@ const AdminDashboard = () => {
                       <p className="text-xs text-gray-500">₦{Number(fee.amount).toLocaleString()} · {fee.academic_session} {fee.department ? `· ${fee.department}` : ''} {fee.level ? `· ${fee.level}` : ''}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button onClick={() => { setFeeForm({ name: fee.name, amount: fee.amount, department: fee.department || '', level: fee.level || '', academic_session: fee.academic_session }); setEditingFeeId(fee.id); }} className="text-xs px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition">Edit</button>
+                      <button onClick={() => { setFeeForm({ name: fee.name, amount: fee.amount, department: fee.department || 'ALL', level: fee.level || '', academic_session: fee.academic_session }); setEditingFeeId(fee.id); }} className="text-xs px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition">Edit</button>
                       <button onClick={async () => { if (window.confirm('Delete this fee?')) { try { await deleteFee(fee.id); const d = await getAllFees(); setFeesData(d.fees || []); toast.success('Fee deleted'); } catch (err) { toast.error('Failed to delete'); } } }} className="text-xs px-3 py-1.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition">Delete</button>
                     </div>
                   </div>

@@ -20,7 +20,7 @@ router.post('/', authenticateJWT, authorizeRoles('bursar', 'admin'), asyncHandle
     name,
     amount,
     academic_session,
-    department: department || null,
+    department: department === 'ALL' ? null : (department || null),
     level: level || null,
     description: description || null,
     created_by: req.user.id
@@ -51,7 +51,16 @@ router.put('/:id', authenticateJWT, authorizeRoles('bursar', 'admin'), asyncHand
   const { name, amount, academic_session, department, level, description, is_active } = req.body;
   const [fee] = await database.db('fees')
     .where({ id: req.params.id })
-    .update({ name, amount, academic_session, department, level, description, is_active, updated_at: new Date() })
+    .update({ 
+      name, 
+      amount, 
+      academic_session, 
+      department: department === 'ALL' ? null : (department || null), 
+      level: level || null, 
+      description: description || null, 
+      is_active, 
+      updated_at: new Date() 
+    })
     .returning('*');
   if (!fee) throw createHttpError(404, 'Fee not found', 'FEE_NOT_FOUND');
 
