@@ -108,7 +108,7 @@ const AdminDashboard = () => {
     ]);
   };
 
-  const handleSaveNewDepartment = async () => {
+  const handleSaveNewDepartment = useCallback(async () => {
     if (!feeForm.department.trim()) return;
     try {
       const response = await fetch('/api/admin/departments', {
@@ -135,9 +135,9 @@ const AdminDashboard = () => {
     } catch (error) {
       toast.error('Failed to add department');
     }
-  };
+  }, [feeForm.department]);
 
-  const handleSaveNewLevel = async () => {
+  const handleSaveNewLevel = useCallback(async () => {
     if (!feeForm.level) {
       toast.error('Please enter a level');
       return;
@@ -167,9 +167,9 @@ const AdminDashboard = () => {
     } catch (error) {
       toast.error('Failed to add level');
     }
-  };
+  }, [feeForm.level]);
 
-  const handleSaveNewSession = async () => {
+  const handleSaveNewSession = useCallback(async () => {
     if (!feeForm.academic_session) {
       toast.error('Please enter an academic session');
       return;
@@ -199,7 +199,7 @@ const AdminDashboard = () => {
     } catch (error) {
       toast.error('Failed to add academic session');
     }
-  };
+  }, [feeForm.academic_session]);
 
   const handleDeleteDepartment = async (department) => {
     try {
@@ -382,7 +382,7 @@ const AdminDashboard = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showNewDeptInput, showNewLevelInput, showNewSessionInput, feeForm]);
+  }, [showNewDeptInput, showNewLevelInput, showNewSessionInput, handleSaveNewDepartment, handleSaveNewLevel, handleSaveNewSession]);
 
   // Fetch reports data
   const { data: reportsData, isLoading: reportsLoading, refetch: refetchReports } = useQuery(
