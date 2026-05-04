@@ -223,6 +223,33 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleDeleteSession = async (session) => {
+    if (!window.confirm(`Delete academic session "${session.name}"?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/academic-sessions/${session.id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast.success('Academic session removed successfully');
+        if (feeForm.academic_session === session.name) {
+          setFeeForm(p => ({ ...p, academic_session: '' }));
+        }
+        await refreshFeeMetadata();
+      } else {
+        toast.error(data.error || 'Failed to delete academic session');
+      }
+    } catch (error) {
+      toast.error('Failed to delete academic session');
+    }
+  };
+
   // Auto-load fees when fees tab is active
   useEffect(() => {
     if (activeTab === 'fees' && feesData.length === 0 && !feesLoading) {
@@ -940,11 +967,11 @@ const AdminDashboard = () => {
               <input placeholder="Fee name" value={feeForm.name} onChange={e => setFeeForm(p => ({ ...p, name: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               <input placeholder="Amount (₦)" type="number" value={feeForm.amount} onChange={e => setFeeForm(p => ({ ...p, amount: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
               
-              {/* Department field with dropdown and create option */}
+              {/* Department field with dropdown and create/delete options */}
               {showNewDeptInput ? (
                 <div className="flex gap-2">
                   <input 
-                    placeholder="New department name" 
+                    placeholder="New department (e.g., Computer Science)" 
                     value={feeForm.department} 
                     onChange={e => setFeeForm(p => ({ ...p, department: e.target.value }))} 
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -981,33 +1008,23 @@ const AdminDashboard = () => {
                   >
                     +
                   </button>
+                  <button
+                    onClick={() => {
+                      const selectedDept = departments.find(d => d.name === feeForm.department);
+                      if (selectedDept) {
+                        handleDeleteDepartment(selectedDept);
+                      }
+                    }}
+                    disabled={!feeForm.department}
+                    className="px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Delete selected department"
+                  >
+                    -
+                  </button>
                 </div>
               )}
 
-              <div className="md:col-span-3">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700">Departments</span>
-                  <span className="text-xs text-gray-500">{departments.length} saved</span>
-                </div>
-                <div className="max-h-40 overflow-y-auto space-y-2 rounded-xl border border-gray-100 bg-gray-50 p-3">
-                  {departments.length > 0 ? departments.map(dept => (
-                    <div key={dept.id} className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2 shadow-sm">
-                      <span className="text-sm text-gray-800">{dept.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteDepartment(dept)}
-                        className="rounded-lg px-3 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 transition"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  )) : (
-                    <div className="text-sm text-gray-500">No departments saved yet.</div>
-                  )}
-                </div>
-              </div>
-
-              {/* Level field with dropdown and create option */}
+              {/* Level field with dropdown and create/delete options */}
               {showNewLevelInput ? (
                 <div className="flex gap-2">
                   <input 
@@ -1048,33 +1065,23 @@ const AdminDashboard = () => {
                   >
                     +
                   </button>
+                  <button
+                    onClick={() => {
+                      const selectedLevel = levels.find(l => l.name === feeForm.level);
+                      if (selectedLevel) {
+                        handleDeleteLevel(selectedLevel);
+                      }
+                    }}
+                    disabled={!feeForm.level}
+                    className="px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Delete selected level"
+                  >
+                    -
+                  </button>
                 </div>
               )}
 
-              <div className="md:col-span-3">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700">Levels</span>
-                  <span className="text-xs text-gray-500">{levels.length} saved</span>
-                </div>
-                <div className="max-h-40 overflow-y-auto space-y-2 rounded-xl border border-gray-100 bg-gray-50 p-3">
-                  {levels.length > 0 ? levels.map(level => (
-                    <div key={level.id} className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2 shadow-sm">
-                      <span className="text-sm text-gray-800">{level.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteLevel(level)}
-                        className="rounded-lg px-3 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 transition"
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  )) : (
-                    <div className="text-sm text-gray-500">No levels saved yet.</div>
-                  )}
-                </div>
-              </div>
-
-              {/* Academic session field with dropdown and create option */}
+              {/* Academic session field with dropdown and create/delete options */}
               {showNewSessionInput ? (
                 <div className="flex gap-2">
                   <input 
@@ -1114,6 +1121,19 @@ const AdminDashboard = () => {
                     title="Create new academic session"
                   >
                     +
+                  </button>
+                  <button
+                    onClick={() => {
+                      const selectedSession = academicSessions.find(s => s.name === feeForm.academic_session);
+                      if (selectedSession) {
+                        handleDeleteSession(selectedSession);
+                      }
+                    }}
+                    disabled={!feeForm.academic_session}
+                    className="px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Delete selected academic session"
+                  >
+                    -
                   </button>
                 </div>
               )}
