@@ -7,13 +7,29 @@ function errorHandler(err, req, res, next) {
   
   console.error('[ERROR]', err.message, '| Route:', req.method, req.url);
   
-  // Sanitize error message in production
   const isProduction = process.env.NODE_ENV === 'production';
-  const errorMessage = isProduction 
-    ? 'An error occurred. Please try again later.' 
+  const statusCode = Number.isInteger(err.statusCode) || Number.isInteger(err.status)
+    ? (err.statusCode || err.status)
+    : 500;
+
+  const errorMessage = isProduction
+    ? (statusCode >= 500 ? 'An error occurred. Please try again later.' : err.message || 'Request failed')
     : (err.message || 'Internal Server Error');
-  
-  res.status(500).json({ success: false, error: errorMessage });
+
+  const payload = {
+    success: false,
+    error: errorMessage
+  };
+
+  if (err.code) {
+    payload.code = err.code;
+  }
+
+  if (err.details) {
+    payload.details = err.details;
+  }
+
+  res.status(statusCode).json(payload);
 }
 
 module.exports = errorHandler;

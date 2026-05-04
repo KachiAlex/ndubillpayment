@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from 'react-query';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Layout from './components/Layout';
+import OfflineBanner from './components/OfflineBanner';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
@@ -38,7 +39,12 @@ function AppRoutes() {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return <LoadingSpinner />;
+    return (
+      <LoadingSpinner
+        title="Restoring your session"
+        message="Please wait while we verify your account and load your dashboard."
+      />
+    );
   }
 
   return (
@@ -130,6 +136,7 @@ function App() {
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
             <div className="App">
+              <OfflineBanner />
               <AppRoutes />
               <ToastContainer
                 position="top-right"

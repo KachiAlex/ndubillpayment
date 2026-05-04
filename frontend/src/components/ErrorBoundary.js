@@ -22,11 +22,16 @@ class ErrorBoundary extends React.Component {
     this.setState({ hasError: false, error: null, errorInfo: null });
   };
 
+  handleGoHome = () => {
+    window.location.href = '/';
+  };
+
   render() {
     if (this.state.hasError) {
+      const errorMessage = this.state.error?.message || 'An unexpected error occurred.';
       return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-          <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-8">
+          <div className="max-w-lg w-full bg-white rounded-2xl shadow-lg p-8">
             <div className="text-center">
               <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-4">
                 <svg className="h-8 w-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -35,19 +40,36 @@ class ErrorBoundary extends React.Component {
               </div>
               <h2 className="text-2xl font-bold text-gray-900 mb-2">Something went wrong</h2>
               <p className="text-gray-600 mb-6">
-                An unexpected error occurred. Please refresh the page or try again later.
+                The app ran into a problem while loading this screen. You can retry or return home.
               </p>
-              {process.env.NODE_ENV === 'development' && this.state.error && (
-                <div className="text-left bg-gray-100 rounded-lg p-4 mb-6">
-                  <p className="text-sm font-mono text-red-600">{this.state.error.toString()}</p>
-                </div>
+              <div className="mb-6 rounded-xl border border-red-100 bg-red-50 p-4 text-left">
+                <p className="text-sm font-semibold text-red-900">Error details</p>
+                <p className="mt-1 text-sm text-red-700 break-words">{errorMessage}</p>
+              </div>
+
+              {process.env.NODE_ENV === 'development' && this.state.errorInfo && (
+                <details className="mb-6 rounded-xl border border-gray-200 bg-gray-50 p-4 text-left">
+                  <summary className="cursor-pointer text-sm font-semibold text-gray-800">Technical details</summary>
+                  <pre className="mt-3 overflow-auto whitespace-pre-wrap text-xs text-gray-700">
+                    {this.state.error?.stack || this.state.errorInfo.componentStack}
+                  </pre>
+                </details>
               )}
-              <button
-                onClick={this.handleReset}
-                className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold"
-              >
-                Refresh Page
-              </button>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <button
+                  onClick={this.handleReset}
+                  className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold"
+                >
+                  Try again
+                </button>
+                <button
+                  onClick={this.handleGoHome}
+                  className="w-full px-4 py-3 bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-200 transition font-semibold"
+                >
+                  Go home
+                </button>
+              </div>
             </div>
           </div>
         </div>

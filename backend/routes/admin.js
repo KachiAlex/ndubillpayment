@@ -1,6 +1,8 @@
 const express = require('express');
 const database = require('../utils/database');
 const { authenticateJWT, authorizeRoles } = require('../middleware/auth');
+const asyncHandler = require('../middleware/asyncHandler');
+const { createHttpError } = require('../utils/httpError');
 const ExcelJS = require('exceljs');
 const AuditLogger = require('../utils/audit');
 const { checkOverduePayments, sendUpcomingReminders } = require('../utils/paymentReminders');
@@ -12,368 +14,305 @@ const router = express.Router();
 router.use(authenticateJWT, authorizeRoles('bursar', 'admin'));
 
 // Dashboard stats
-router.get('/dashboard', async (req, res) => {
-  try {
-    const [stats] = await database.db.raw(`
+router.get('/dashboard', asyncHandler(async (req, res) => {
+  const [stats] = await database.db.raw(`
       SELECT
         (SELECT COUNT(*) FROM users WHERE user_type = 'student') as total_students,
         (SELECT COUNT(*) FROM transactions WHERE status = 'completed') as total_transactions,
         (SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE status = 'completed') as total_revenue,
         (SELECT COUNT(*) FROM transactions WHERE status = 'pending') as pending_payments
     `);
-    res.json({ success: true, stats: stats.rows ? stats.rows[0] : stats });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
+  res.json({ success: true, stats: stats.rows ? stats.rows[0] : stats });
+}));
 
 // All transactions with pagination
-router.get('/transactions', async (req, res) => {
-  try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const offset = (page - 1) * limit;
+router.get('/transactions', asyncHandler(async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+  const offset = (page - 1) * limit;
 
-    const transactions = await database.db('transactions')
-      .join('users', 'transactions.user_id', 'users.id')
-      .select('transactions.*', 'users.first_name', 'users.last_name', 'users.matric_number')
-      .orderBy('transactions.created_at', 'desc')
-      .limit(limit)
-      .offset(offset);
+  const transactions = await database.db('transactions')
+    .join('users', 'transactions.user_id', 'users.id')
+    .select('transactions.*', 'users.first_name', 'users.last_name', 'users.matric_number')
+    .orderBy('transactions.created_at', 'desc')
+    .limit(limit)
+    .offset(offset);
 
-    const totalCount = await database.db('transactions').count('* as count').first();
-    const totalPages = Math.ceil(totalCount.count / limit);
+  const totalCount = await database.db('transactions').count('* as count').first();
+  const totalPages = Math.ceil(totalCount.count / limit);
 
-    res.json({
-      success: true,
-      transactions,
-      pagination: {
-        page,
-        limit,
-        total: totalCount.count,
-        totalPages,
-        hasNext: page < totalPages,
-        hasPrev: page > 1
-      }
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
+  res.json({
+    success: true,
+    transactions,
+    pagination: {
+      page,
+      limit,
+      total: totalCount.count,
+      totalPages,
+      hasNext: page < totalPages,
+      hasPrev: page > 1
+    }
+  });
+}));
 
 // All students
-router.get('/students', async (req, res) => {
-  try {
-    const students = await database.db('users').where({ user_type: 'student' }).select('id', 'matric_number', 'email', 'first_name', 'last_name', 'department', 'level', 'is_verified', 'created_at');
-    res.json({ success: true, students });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
+router.get('/students', asyncHandler(async (req, res) => {
+  const students = await database.db('users').where({ user_type: 'student' }).select('id', 'matric_number', 'email', 'first_name', 'last_name', 'department', 'level', 'is_verified', 'created_at');
+  res.json({ success: true, students });
+}));
 
 // All users with pagination
-router.get('/users', async (req, res) => {
-  try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
-    const offset = (page - 1) * limit;
+router.get('/users', asyncHandler(async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+  const offset = (page - 1) * limit;
 
-    const users = await database.db('users')
-      .select('id', 'email', 'first_name', 'last_name', 'matric_number', 'user_type', 'department', 'level', 'is_verified', 'created_at')
-      .orderBy('created_at', 'desc')
-      .limit(limit)
-      .offset(offset);
+  const users = await database.db('users')
+    .select('id', 'email', 'first_name', 'last_name', 'matric_number', 'user_type', 'department', 'level', 'is_verified', 'created_at')
+    .orderBy('created_at', 'desc')
+    .limit(limit)
+    .offset(offset);
 
-    const totalCount = await database.db('users').count('* as count').first();
-    const totalPages = Math.ceil(totalCount.count / limit);
+  const totalCount = await database.db('users').count('* as count').first();
+  const totalPages = Math.ceil(totalCount.count / limit);
 
-    res.json({
-      success: true,
-      users,
-      pagination: {
-        page,
-        limit,
-        total: totalCount.count,
-        totalPages,
-        hasNext: page < totalPages,
-        hasPrev: page > 1
-      }
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
+  res.json({
+    success: true,
+    users,
+    pagination: {
+      page,
+      limit,
+      total: totalCount.count,
+      totalPages,
+      hasNext: page < totalPages,
+      hasPrev: page > 1
+    }
+  });
+}));
 
 // Reports with filters
-router.get('/reports', async (req, res) => {
-  try {
-    const { start_date, end_date, department, session } = req.query;
-    
-    let query = database.db('transactions')
-      .join('users', 'transactions.user_id', 'users.id')
-      .select(
-        'transactions.*',
-        'users.first_name',
-        'users.last_name',
-        'users.matric_number',
-        'users.department',
-        'users.level'
-      )
-      .where('transactions.status', 'completed');
+router.get('/reports', asyncHandler(async (req, res) => {
+  const { start_date, end_date, department, session } = req.query;
+  
+  let query = database.db('transactions')
+    .join('users', 'transactions.user_id', 'users.id')
+    .select(
+      'transactions.*',
+      'users.first_name',
+      'users.last_name',
+      'users.matric_number',
+      'users.department',
+      'users.level'
+    )
+    .where('transactions.status', 'completed');
 
-    if (start_date) {
-      query = query.where('transactions.created_at', '>=', start_date);
-    }
-    if (end_date) {
-      query = query.where('transactions.created_at', '<=', end_date);
-    }
-    if (department) {
-      query = query.where('users.department', department);
-    }
-
-    const transactions = await query.orderBy('transactions.created_at', 'desc');
-
-    // Calculate summary
-    const totalAmount = transactions.reduce((sum, t) => sum + Number(t.amount || 0), 0);
-    const uniqueStudents = new Set(transactions.map(t => t.user_id)).size;
-
-    res.json({
-      success: true,
-      summary: {
-        total_amount: totalAmount,
-        total_transactions: transactions.length,
-        unique_students: uniqueStudents
-      },
-      transactions
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+  if (start_date) {
+    query = query.where('transactions.created_at', '>=', start_date);
   }
-});
+  if (end_date) {
+    query = query.where('transactions.created_at', '<=', end_date);
+  }
+  if (department) {
+    query = query.where('users.department', department);
+  }
+
+  const transactions = await query.orderBy('transactions.created_at', 'desc');
+
+  const totalAmount = transactions.reduce((sum, t) => sum + Number(t.amount || 0), 0);
+  const uniqueStudents = new Set(transactions.map(t => t.user_id)).size;
+
+  res.json({
+    success: true,
+    summary: {
+      total_amount: totalAmount,
+      total_transactions: transactions.length,
+      unique_students: uniqueStudents
+    },
+    transactions
+  });
+}));
 
 // Get all unique departments (public)
-router.get('/departments', async (req, res) => {
-  try {
-    const departments = await database.db('departments')
-      .orderBy('name', 'asc')
-      .pluck('name');
-    
-    res.json({ success: true, departments });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
+router.get('/departments', asyncHandler(async (req, res) => {
+  const departments = await database.db('departments')
+    .orderBy('name', 'asc')
+    .pluck('name');
+
+  res.json({ success: true, departments });
+}));
 
 // Create new department
-router.post('/departments', async (req, res) => {
-  try {
-    const { department } = req.body;
+router.post('/departments', asyncHandler(async (req, res) => {
+  const { department } = req.body;
 
-    if (!department) {
-      return res.status(400).json({ success: false, error: 'Department name is required' });
-    }
-
-    // Check if department already exists
-    const existing = await database.db('departments').where({ name: department }).first();
-    if (existing) {
-      return res.json({ success: true, department, message: 'Department already exists' });
-    }
-
-    // Insert into departments table
-    await database.db('departments').insert({ name: department });
-
-    await AuditLogger.log({
-      action: 'department_created',
-      userId: req.user.id,
-      userEmail: req.user.email,
-      userType: req.user.user_type,
-      entityType: 'department',
-      newValues: { name: department },
-      req
-    });
-
-    res.json({ success: true, department });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+  if (!department) {
+    throw createHttpError(400, 'Department name is required', 'VALIDATION_ERROR');
   }
-});
+
+  const existing = await database.db('departments').where({ name: department }).first();
+  if (existing) {
+    return res.json({ success: true, department, message: 'Department already exists' });
+  }
+
+  await database.db('departments').insert({ name: department });
+
+  await AuditLogger.log({
+    action: 'department_created',
+    userId: req.user.id,
+    userEmail: req.user.email,
+    userType: req.user.user_type,
+    entityType: 'department',
+    newValues: { name: department },
+    req
+  });
+
+  res.json({ success: true, department });
+}));
 
 // Get all unique levels
-router.get('/levels', async (req, res) => {
-  try {
-    const levels = await database.db('levels')
-      .orderBy('name', 'asc')
-      .pluck('name');
-    
-    res.json({ success: true, levels });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
+router.get('/levels', asyncHandler(async (req, res) => {
+  const levels = await database.db('levels')
+    .orderBy('name', 'asc')
+    .pluck('name');
+
+  res.json({ success: true, levels });
+}));
 
 // Create new level
-router.post('/levels', async (req, res) => {
-  try {
-    const { level } = req.body;
+router.post('/levels', asyncHandler(async (req, res) => {
+  const { level } = req.body;
 
-    if (!level) {
-      return res.status(400).json({ success: false, error: 'Level is required' });
-    }
-
-    // Check if level already exists
-    const existing = await database.db('levels').where({ name: level }).first();
-    if (existing) {
-      return res.json({ success: true, level, message: 'Level already exists' });
-    }
-
-    // Insert into levels table
-    await database.db('levels').insert({ name: level });
-
-    await AuditLogger.log({
-      action: 'level_created',
-      userId: req.user.id,
-      userEmail: req.user.email,
-      userType: req.user.user_type,
-      entityType: 'level',
-      newValues: { name: level },
-      req
-    });
-
-    res.json({ success: true, level });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+  if (!level) {
+    throw createHttpError(400, 'Level is required', 'VALIDATION_ERROR');
   }
-});
+
+  const existing = await database.db('levels').where({ name: level }).first();
+  if (existing) {
+    return res.json({ success: true, level, message: 'Level already exists' });
+  }
+
+  await database.db('levels').insert({ name: level });
+
+  await AuditLogger.log({
+    action: 'level_created',
+    userId: req.user.id,
+    userEmail: req.user.email,
+    userType: req.user.user_type,
+    entityType: 'level',
+    newValues: { name: level },
+    req
+  });
+
+  res.json({ success: true, level });
+}));
 
 // Get all unique academic sessions
-router.get('/academic-sessions', async (req, res) => {
-  try {
-    const sessions = await database.db('sessions')
-      .orderBy('name', 'desc')
-      .pluck('name');
-    
-    res.json({ success: true, sessions });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
+router.get('/academic-sessions', asyncHandler(async (req, res) => {
+  const sessions = await database.db('sessions')
+    .orderBy('name', 'desc')
+    .pluck('name');
+
+  res.json({ success: true, sessions });
+}));
 
 // Create new academic session
-router.post('/academic-sessions', async (req, res) => {
-  try {
-    const { academic_session } = req.body;
+router.post('/academic-sessions', asyncHandler(async (req, res) => {
+  const { academic_session } = req.body;
 
-    if (!academic_session) {
-      return res.status(400).json({ success: false, error: 'Academic session is required' });
-    }
-
-    // Check if session already exists
-    const existing = await database.db('sessions').where({ name: academic_session }).first();
-    if (existing) {
-      return res.json({ success: true, academic_session, message: 'Academic session already exists' });
-    }
-
-    // Insert into sessions table
-    await database.db('sessions').insert({ name: academic_session });
-
-    await AuditLogger.log({
-      action: 'session_created',
-      userId: req.user.id,
-      userEmail: req.user.email,
-      userType: req.user.user_type,
-      entityType: 'session',
-      newValues: { name: academic_session },
-      req
-    });
-
-    res.json({ success: true, academic_session });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+  if (!academic_session) {
+    throw createHttpError(400, 'Academic session is required', 'VALIDATION_ERROR');
   }
-});
+
+  const existing = await database.db('sessions').where({ name: academic_session }).first();
+  if (existing) {
+    return res.json({ success: true, academic_session, message: 'Academic session already exists' });
+  }
+
+  await database.db('sessions').insert({ name: academic_session });
+
+  await AuditLogger.log({
+    action: 'session_created',
+    userId: req.user.id,
+    userEmail: req.user.email,
+    userType: req.user.user_type,
+    entityType: 'session',
+    newValues: { name: academic_session },
+    req
+  });
+
+  res.json({ success: true, academic_session });
+}));
 
 // Download receipt
-router.get('/receipt/:receipt_number', async (req, res) => {
-  try {
-    const receipt = await database.db('receipts').where({ receipt_number: req.params.receipt_number }).first();
-    if (!receipt || !receipt.pdf_base64) {
-      return res.status(404).json({ success: false, error: 'Receipt not found' });
-    }
-    const pdfBuffer = Buffer.from(receipt.pdf_base64, 'base64');
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="receipt-${receipt.receipt_number}.pdf"`);
-    res.send(pdfBuffer);
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+router.get('/receipt/:receipt_number', asyncHandler(async (req, res) => {
+  const receipt = await database.db('receipts').where({ receipt_number: req.params.receipt_number }).first();
+  if (!receipt || !receipt.pdf_base64) {
+    throw createHttpError(404, 'Receipt not found', 'RECEIPT_NOT_FOUND');
   }
-});
+  const pdfBuffer = Buffer.from(receipt.pdf_base64, 'base64');
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="receipt-${receipt.receipt_number}.pdf"`);
+  res.send(pdfBuffer);
+}));
 
 // Search student payments
-router.get('/search-student', async (req, res) => {
-  try {
-    const { student_id, department } = req.query;
-    
-    let query = database.db('transactions')
-      .join('users', 'transactions.user_id', 'users.id')
-      .select(
-        'transactions.*',
-        'users.first_name',
-        'users.last_name',
-        'users.matric_number',
-        'users.department'
-      );
+router.get('/search-student', asyncHandler(async (req, res) => {
+  const { student_id, department } = req.query;
+  
+  let query = database.db('transactions')
+    .join('users', 'transactions.user_id', 'users.id')
+    .select(
+      'transactions.*',
+      'users.first_name',
+      'users.last_name',
+      'users.matric_number',
+      'users.department'
+    );
 
-    if (student_id) {
-      query = query.where('users.matric_number', 'like', `%${student_id}%`);
-    }
-    if (department) {
-      query = query.where('users.department', department);
-    }
-
-    const transactions = await query.orderBy('transactions.created_at', 'desc');
-
-    const totalAmount = transactions.reduce((sum, t) => sum + Number(t.amount || 0), 0);
-
-    res.json({
-      success: true,
-      transactions,
-      summary: {
-        total_amount: totalAmount,
-        transaction_count: transactions.length
-      }
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+  if (student_id) {
+    query = query.where('users.matric_number', 'like', `%${student_id}%`);
   }
-});
+  if (department) {
+    query = query.where('users.department', department);
+  }
 
-// Reconcile payments
-router.post('/reconcile', async (req, res) => {
-  try {
-    const { start_date, end_date } = req.body;
-    
-    if (!start_date || !end_date) {
-      return res.status(400).json({ success: false, error: 'Start date and end date are required' });
-    }
+  const transactions = await query.orderBy('transactions.created_at', 'desc');
 
-    const transactions = await database.db('transactions')
-      .whereBetween('created_at', [start_date, end_date])
-      .where('status', 'completed');
+  const totalAmount = transactions.reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
-    const totalAmount = transactions.reduce((sum, t) => sum + Number(t.amount || 0), 0);
-
-    res.json({
-      success: true,
+  res.json({
+    success: true,
+    transactions,
+    summary: {
       total_amount: totalAmount,
       transaction_count: transactions.length
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    }
+  });
+}));
+
+// Reconcile payments
+router.post('/reconcile', asyncHandler(async (req, res) => {
+  const { start_date, end_date } = req.body;
+  
+  if (!start_date || !end_date) {
+    throw createHttpError(400, 'Start date and end date are required', 'VALIDATION_ERROR');
   }
-});
+
+  const transactions = await database.db('transactions')
+    .whereBetween('created_at', [start_date, end_date])
+    .where('status', 'completed');
+
+  const totalAmount = transactions.reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+  res.json({
+    success: true,
+    total_amount: totalAmount,
+    transaction_count: transactions.length
+  });
+}));
 
 // Export transactions to Excel
-router.get('/export/excel', async (req, res) => {
+router.get('/export/excel', asyncHandler(async (req, res) => {
   try {
     const { start_date, end_date, department, session } = req.query;
     
@@ -455,12 +394,12 @@ router.get('/export/excel', async (req, res) => {
     res.end();
   } catch (err) {
     console.error('[admin] excel export error:', err.message);
-    res.status(500).json({ success: false, error: err.message });
+    throw err;
   }
-});
+}));
 
 // Export transactions to CSV
-router.get('/export/csv', async (req, res) => {
+router.get('/export/csv', asyncHandler(async (req, res) => {
   try {
     const { start_date, end_date, department, session } = req.query;
     
@@ -535,12 +474,12 @@ router.get('/export/csv', async (req, res) => {
     res.send(csvContent);
   } catch (err) {
     console.error('[admin] csv export error:', err.message);
-    res.status(500).json({ success: false, error: err.message });
+    throw err;
   }
-});
+}));
 
 // Export paid students to Excel
-router.get('/export/paid-students/excel', async (req, res) => {
+router.get('/export/paid-students/excel', asyncHandler(async (req, res) => {
   try {
     const { start_date, end_date, department, session } = req.query;
     
@@ -608,12 +547,12 @@ router.get('/export/paid-students/excel', async (req, res) => {
     res.end();
   } catch (err) {
     console.error('[admin] paid students excel export error:', err.message);
-    res.status(500).json({ success: false, error: err.message });
+    throw err;
   }
-});
+}));
 
 // Export paid students to CSV
-router.get('/export/paid-students/csv', async (req, res) => {
+router.get('/export/paid-students/csv', asyncHandler(async (req, res) => {
   try {
     const { start_date, end_date, department, session } = req.query;
     
@@ -674,12 +613,12 @@ router.get('/export/paid-students/csv', async (req, res) => {
     res.send(csvContent);
   } catch (err) {
     console.error('[admin] paid students csv export error:', err.message);
-    res.status(500).json({ success: false, error: err.message });
+    throw err;
   }
-});
+}));
 
 // ── BURSAR: View audit logs ──
-router.get('/audit-logs', async (req, res) => {
+router.get('/audit-logs', asyncHandler(async (req, res) => {
   try {
     const { action, entity_type, limit = 100, offset = 0 } = req.query;
 
@@ -707,19 +646,18 @@ router.get('/audit-logs', async (req, res) => {
     res.json({ success: true, logs });
   } catch (err) {
     console.error('[admin] audit logs error:', err.message);
-    res.status(500).json({ success: false, error: err.message });
+    throw err;
   }
-});
+}));
 
 // ── BURSAR: Bulk create students ──
-router.post('/students/bulk', async (req, res) => {
+router.post('/students/bulk', asyncHandler(async (req, res) => {
   const trx = await database.db.transaction();
   try {
     const { students } = req.body; // Array of student objects
     
     if (!Array.isArray(students) || students.length === 0) {
-      await trx.rollback();
-      return res.status(400).json({ success: false, error: 'students must be a non-empty array' });
+      throw createHttpError(400, 'students must be a non-empty array', 'VALIDATION_ERROR');
     }
 
     const bcrypt = require('bcryptjs');
@@ -784,21 +722,21 @@ router.post('/students/bulk', async (req, res) => {
   } catch (err) {
     await trx.rollback();
     console.error('[admin] bulk student creation error:', err.message);
-    res.status(500).json({ success: false, error: err.message });
+    throw err;
   }
-});
+}));
 
 // ── BURSAR: Bulk update students ──
-router.put('/students/bulk', async (req, res) => {
+router.put('/students/bulk', asyncHandler(async (req, res) => {
   try {
     const { student_ids, updates } = req.body; // student_ids: array of IDs, updates: object with fields to update
     
     if (!Array.isArray(student_ids) || student_ids.length === 0) {
-      return res.status(400).json({ success: false, error: 'student_ids must be a non-empty array' });
+      throw createHttpError(400, 'student_ids must be a non-empty array', 'VALIDATION_ERROR');
     }
 
     if (!updates || Object.keys(updates).length === 0) {
-      return res.status(400).json({ success: false, error: 'No fields to update' });
+      throw createHttpError(400, 'No fields to update', 'VALIDATION_ERROR');
     }
 
     const allowedFields = ['department', 'level', 'session', 'first_name', 'last_name'];
@@ -810,7 +748,7 @@ router.put('/students/bulk', async (req, res) => {
     }
 
     if (Object.keys(updateData).length === 0) {
-      return res.status(400).json({ success: false, error: 'No valid fields to update' });
+      throw createHttpError(400, 'No valid fields to update', 'VALIDATION_ERROR');
     }
 
     const updatedCount = await database.db('users')
@@ -830,12 +768,12 @@ router.put('/students/bulk', async (req, res) => {
     res.json({ success: true, updated_count });
   } catch (err) {
     console.error('[admin] bulk student update error:', err.message);
-    res.status(500).json({ success: false, error: err.message });
+    throw err;
   }
-});
+}));
 
 // ── BURSAR: Trigger payment reminders ──
-router.post('/payment-reminders/send', async (req, res) => {
+router.post('/payment-reminders/send', asyncHandler(async (req, res) => {
   try {
     await sendUpcomingReminders();
     
@@ -852,12 +790,12 @@ router.post('/payment-reminders/send', async (req, res) => {
     res.json({ success: true, message: 'Payment reminders sent successfully' });
   } catch (err) {
     console.error('[admin] payment reminders error:', err.message);
-    res.status(500).json({ success: false, error: err.message });
+    throw err;
   }
-});
+}));
 
 // ── BURSAR: Check overdue payments ──
-router.post('/payment-reminders/check-overdue', async (req, res) => {
+router.post('/payment-reminders/check-overdue', asyncHandler(async (req, res) => {
   try {
     await checkOverduePayments();
     
@@ -874,12 +812,12 @@ router.post('/payment-reminders/check-overdue', async (req, res) => {
     res.json({ success: true, message: 'Overdue payments checked successfully' });
   } catch (err) {
     console.error('[admin] overdue check error:', err.message);
-    res.status(500).json({ success: false, error: err.message });
+    throw err;
   }
-});
+}));
 
 // ── BURSAR: Create database backup ──
-router.post('/backup/create', async (req, res) => {
+router.post('/backup/create', asyncHandler(async (req, res) => {
   try {
     const result = await createBackup();
     
@@ -896,19 +834,19 @@ router.post('/backup/create', async (req, res) => {
     res.json({ success: true, message: 'Backup created successfully', file: result.file });
   } catch (err) {
     console.error('[admin] backup create error:', err.message);
-    res.status(500).json({ success: false, error: err.message });
+    throw err;
   }
-});
+}));
 
 // ── BURSAR: List database backups ──
-router.get('/backup/list', async (req, res) => {
+router.get('/backup/list', asyncHandler(async (req, res) => {
   try {
     const result = await listBackups();
     res.json({ success: true, backups: result.backups });
   } catch (err) {
     console.error('[admin] backup list error:', err.message);
-    res.status(500).json({ success: false, error: err.message });
+    throw err;
   }
-});
+}));
 
 module.exports = router;

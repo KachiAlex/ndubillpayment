@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { apiFetch } from '../api/config';
@@ -7,6 +7,7 @@ import notificationService from '../services/notificationService';
 import qrCodeService from '../services/qrCodeService';
 import biometricService from '../services/biometricService';
 import NotificationSettings from '../components/NotificationSettings';
+import LoadingSpinner from '../components/LoadingSpinner';
 import { FeeCardSkeleton } from '../components/LoadingSkeleton';
 
 const useWallet = () => {
@@ -35,6 +36,21 @@ const useFees = () => {
     const data = await getApplicableFees();
     return data.fees || [];
   });
+};
+
+const isOverdueFee = (fee) => {
+  if (!fee?.due_date) return false;
+  if (Number(fee.remaining_balance) <= 0) return false;
+
+  const dueDate = new Date(fee.due_date);
+  if (Number.isNaN(dueDate.getTime())) return false;
+
+  return dueDate < new Date();
+};
+
+const formatDueDate = (value) => {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 'Unknown due date' : date.toLocaleDateString();
 };
 
 const StudentDashboard = () => {
@@ -96,6 +112,9 @@ const StudentDashboard = () => {
 
   const walletBalanceNgn = wallet?.balance ?? 0;
   const recentTx = Array.isArray(txs) ? txs : [];
+  const overdueFees = useMemo(() => {
+    return Array.isArray(fees) ? fees.filter(isOverdueFee) : [];
+  }, [fees]);
 
   // Initialize services
   useEffect(() => {
@@ -111,6 +130,33 @@ const StudentDashboard = () => {
 
     initializeServices();
   }, []);
+
+  // Notify once per overdue fee
+  useEffect(() => {
+    if (!Array.isArray(overdueFees) || overdueFees.length === 0) return;
+
+    const notifiedKey = `overdue_notifications_${JSON.parse(localStorage.getItem('user') || '{}')?.id || 'guest'}`;
+    const previouslyNotified = new Set(JSON.parse(localStorage.getItem(notifiedKey) || '[]'));
+    const newlyNotified = [...previouslyNotified];
+    let updated = false;
+
+    overdueFees.forEach((fee) => {
+      const notificationKey = `${fee.id}:${fee.remaining_balance}:${fee.due_date}`;
+      if (!previouslyNotified.has(notificationKey)) {
+        notificationService.showOverduePayment(
+          fee.name,
+          fee.remaining_balance,
+          formatDueDate(fee.due_date)
+        );
+        newlyNotified.push(notificationKey);
+        updated = true;
+      }
+    });
+
+    if (updated) {
+      localStorage.setItem(notifiedKey, JSON.stringify(newlyNotified));
+    }
+  }, [overdueFees]);
 
   // Generate QR code for wallet
   useEffect(() => {
@@ -283,6 +329,22 @@ const StudentDashboard = () => {
             </div>
           </div>
         )}
+
+        {overdueFees.length > 0 && (
+          <div className="mt-4 p-3 sm:p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+              </svg>
+              <div>
+                <h4 className="text-sm font-medium text-red-800">Overdue payment alert</h4>
+                <p className="text-xs sm:text-sm text-red-700 mt-1">
+                  You have {overdueFees.length} overdue fee{overdueFees.length > 1 ? 's' : ''}. Please review the Fees tab to pay them as soon as possible.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
@@ -424,8 +486,9 @@ const StudentDashboard = () => {
               <div className="divide-y divide-gray-100">
                 {fees.map(fee => {
                   const progressPercent = fee.total_amount > 0 ? (fee.amount_paid / fee.total_amount) * 100 : 0;
+                  const overdue = isOverdueFee(fee);
                   return (
-                    <div key={fee.id} className="py-4">
+                    <div key={fee.id} className={`py-4 ${overdue ? 'rounded-xl bg-red-50 px-3 sm:px-4 border border-red-100' : ''}`}>
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                         <div>
                           <p className="text-sm font-medium text-gray-900">{fee.name}</p>
@@ -434,6 +497,11 @@ const StudentDashboard = () => {
                             {fee.department && ` · ${fee.department}`}
                             {fee.level && ` · ${fee.level}`}
                           </p>
+                          {overdue && (
+                            <p className="mt-1 text-xs font-medium text-red-700">
+                              Overdue since {formatDueDate(fee.due_date)}
+                            </p>
+                          )}
                         </div>
                         <div className="text-right">
                           <p className="text-sm font-bold text-gray-900">₦{Number(fee.amount).toLocaleString()}</p>
@@ -473,9 +541,9 @@ const StudentDashboard = () => {
                             <button
                               onClick={() => openPaymentDialog(fee)}
                               disabled={walletBalanceNgn < fee.remaining_balance}
-                              className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                              className={`px-3 py-1.5 text-xs text-white rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed ${overdue ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
                             >
-                              Pay
+                              {overdue ? 'Pay overdue fee' : 'Pay'}
                             </button>
                           )}
                         </div>
@@ -484,7 +552,11 @@ const StudentDashboard = () => {
                         <div className="mt-4 pt-4 border-t border-gray-100">
                           <p className="text-xs font-medium text-gray-700 mb-2">Payment History</p>
                           {loadingHistory ? (
-                            <div className="text-xs text-gray-500">Loading...</div>
+                            <LoadingSpinner
+                              compact
+                              title="Loading payment history"
+                              message="Retrieving previous payments for this fee."
+                            />
                           ) : !feeHistory || !feeHistory.transactions || feeHistory.transactions.length === 0 ? (
                             <div className="text-xs text-gray-500">No payment history</div>
                           ) : (
@@ -517,7 +589,11 @@ const StudentDashboard = () => {
             </div>
           </div>
           {loadingTx ? (
-            <div className="text-center py-10 text-gray-500">Loading transactions…</div>
+            <LoadingSpinner
+              compact
+              title="Loading transactions"
+              message="Retrieving your most recent wallet activity."
+            />
           ) : !Array.isArray(recentTx) || recentTx.length === 0 ? (
             <div className="text-center py-10 text-gray-500">No transactions yet</div>
           ) : (

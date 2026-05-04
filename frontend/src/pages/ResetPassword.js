@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { apiFetch } from '../api/config';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const ResetPassword = () => {
   const [searchParams] = useSearchParams();
@@ -72,10 +73,11 @@ const ResetPassword = () => {
   if (tokenValid === null) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Verifying reset token...</p>
-        </div>
+        <LoadingSpinner
+          compact
+          title="Verifying reset token"
+          message="Checking whether the password reset link is still valid."
+        />
       </div>
     );
   }
@@ -149,6 +151,16 @@ const ResetPassword = () => {
                 </div>
               )}
 
+              {loading && (
+                <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+                  <LoadingSpinner
+                    compact
+                    title="Resetting your password"
+                    message="Saving your new password and signing you out of old sessions."
+                  />
+                </div>
+              )}
+
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
                   New Password
@@ -188,7 +200,7 @@ const ResetPassword = () => {
                 disabled={loading}
                 className="w-full py-3 px-4 rounded-lg font-semibold text-white bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'Resetting...' : 'Reset Password'}
+                {loading ? 'Resetting…' : 'Reset Password'}
               </button>
 
               <div className="text-center">

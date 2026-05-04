@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from 'react-query';
 import { apiFetch } from '../api/config';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const Wallet = () => {
   const [amount, setAmount] = useState('');
@@ -29,7 +30,13 @@ const Wallet = () => {
       <div className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-sm">
         <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Wallet Balance</h2>
         {isLoading ? (
-          <div className="h-8 bg-gray-200 rounded animate-pulse"></div>
+          <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+            <LoadingSpinner
+              compact
+              title="Loading wallet balance"
+              message="Fetching your latest balance and transaction status."
+            />
+          </div>
         ) : (
           <p className="text-3xl sm:text-4xl font-bold text-blue-600">₦{wallet?.balance?.toLocaleString() || 0}</p>
         )}
@@ -57,7 +64,7 @@ const Wallet = () => {
             disabled={!amount || amount <= 0}
             className="w-full px-4 py-3 text-base bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition"
           >
-            Fund Wallet
+            Continue to Payment
           </button>
         </div>
       </div>

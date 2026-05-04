@@ -17,6 +17,7 @@ const publicRoutes = require('./routes/public');
 console.log('[app] public routes loaded');
 const errorHandler = require('./middleware/errorHandler');
 console.log('[app] errorHandler loaded');
+const { createHttpError } = require('./utils/httpError');
 const requestLogger = require('./middleware/requestLogger');
 console.log('[app] requestLogger loaded');
 const { generalLimiter, authLimiter, paymentLimiter } = require('./middleware/rateLimit');
@@ -58,7 +59,7 @@ app.use('/api/fees', paymentLimiter, feeRoutes);
 
 // 404
 app.use('*', (req, res) => {
-  res.status(404).json({ success: false, message: 'Route not found' });
+  throw createHttpError(404, 'Route not found', 'ROUTE_NOT_FOUND');
 });
 
 // Error handler

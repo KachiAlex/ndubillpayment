@@ -1,8 +1,7 @@
-const CACHE_NAME = 'ndu-payment-v1';
-const urlsToCache = [
+const CACHE_NAME = 'ndu-payment-v2';
+const APP_SHELL_URLS = [
   '/',
-  '/static/js/bundle.js',
-  '/static/css/main.css',
+  '/offline.html',
   '/manifest.json',
   '/favicon.ico'
 ];
@@ -13,41 +12,66 @@ self.addEventListener('install', event => {
     caches.open(CACHE_NAME)
       .then(cache => {
         console.log('Opened cache');
-        return cache.addAll(urlsToCache);
+        return cache.addAll(APP_SHELL_URLS);
       })
   );
+  self.skipWaiting();
 });
 
 // Fetch event
 self.addEventListener('fetch', event => {
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        // Cache hit - return response
-        if (response) {
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
+  const requestUrl = new URL(event.request.url);
+  const isSameOrigin = requestUrl.origin === self.location.origin;
+  const isApiRequest = requestUrl.pathname.startsWith('/api/');
+  const isNavigationRequest = event.request.mode === 'navigate';
+
+  if (isApiRequest) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
+  if (isNavigationRequest) {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put('/', responseToCache));
           return response;
+        })
+        .catch(async () => {
+          const cachedApp = await caches.match('/');
+          if (cachedApp) return cachedApp;
+
+          const offlinePage = await caches.match('/offline.html');
+          return offlinePage || Response.error();
+        })
+    );
+    return;
+  }
+
+  if (isSameOrigin) {
+    event.respondWith(
+      caches.match(event.request).then(cachedResponse => {
+        if (cachedResponse) {
+          return cachedResponse;
         }
 
-        return fetch(event.request).then(
-          response => {
-            // Check if we received a valid response
-            if (!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
-            }
-
-            // Clone the response
-            const responseToCache = response.clone();
-
-            caches.open(CACHE_NAME)
-              .then(cache => {
-                cache.put(event.request, responseToCache);
-              });
-
+        return fetch(event.request).then(response => {
+          if (!response || response.status !== 200 || response.type !== 'basic') {
             return response;
           }
-        );
+
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseToCache));
+          return response;
+        });
       })
-  );
+    );
+  }
 });
 
 // Activate event
@@ -64,6 +88,7 @@ self.addEventListener('activate', event => {
       );
     })
   );
+  self.clients.claim();
 });
 
 // Background sync for payment retry

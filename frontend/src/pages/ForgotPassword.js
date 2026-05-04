@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiFetch } from '../api/config';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
@@ -78,6 +79,16 @@ const ForgotPassword = () => {
                 </div>
               )}
 
+              {loading && (
+                <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+                  <LoadingSpinner
+                    compact
+                    title="Sending reset link"
+                    message="Checking your email address and preparing the reset message."
+                  />
+                </div>
+              )}
+
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                   Email Address
@@ -99,7 +110,7 @@ const ForgotPassword = () => {
                 disabled={loading}
                 className="w-full py-3 px-4 rounded-lg font-semibold text-white bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'Sending...' : 'Send Reset Link'}
+                {loading ? 'Sending…' : 'Send Reset Link'}
               </button>
 
               <div className="text-center">

@@ -1,3 +1,5 @@
+import { parseResponseError } from '../utils/errorUtils';
+
 export const API_BASE = process.env.REACT_APP_API_URL || '/api';
 
 function buildUrl(path) {
@@ -27,17 +29,7 @@ export async function apiFetch(path, options = {}, timeoutMs = 25000) {
     clearTimeout(timeout);
 
     if (!res.ok) {
-      const ct = res.headers.get('content-type') || '';
-      if (ct.includes('text/html')) {
-        await res.text().catch(() => '');
-        console.error('[apiFetch] Received HTML instead of JSON. Status:', res.status, 'URL:', res.url);
-        throw new Error(`Server returned HTML page (status ${res.status}). Check API URL.`);
-      }
-      const text = await res.text().catch(() => '');
-      let data;
-      try { data = JSON.parse(text); } catch { data = null; }
-      const msg = data?.error || text || `Request failed: ${res.status}`;
-      throw new Error(msg);
+      throw new Error(await parseResponseError(res));
     }
     const ct = res.headers.get('content-type') || '';
     return ct.includes('application/json') ? res.json() : res.text();

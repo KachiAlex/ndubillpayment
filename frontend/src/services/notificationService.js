@@ -112,6 +112,25 @@ class NotificationService {
     });
   }
 
+  showOverduePayment(feeName, amountDue, dueDate) {
+    this.showNotification('Overdue Payment ⚠️', {
+      body: `${feeName} is overdue. Amount due: ₦${Number(amountDue).toLocaleString()}. Due date: ${dueDate}`,
+      requireInteraction: true,
+      actions: [
+        {
+          action: 'pay',
+          title: 'Pay Now',
+          icon: '/icon-192x192.png'
+        },
+        {
+          action: 'close',
+          title: 'Dismiss',
+          icon: '/icon-192x192.png'
+        }
+      ]
+    });
+  }
+
   showLowBalance(currentBalance, requiredAmount) {
     this.showNotification('Low Wallet Balance ⚠️', {
       body: `Current balance: ₦${currentBalance.toLocaleString()}. Required: ₦${requiredAmount.toLocaleString()}`,

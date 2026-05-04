@@ -1,50 +1,42 @@
 const express = require('express');
 const database = require('../utils/database');
 const { authenticateJWT } = require('../middleware/auth');
+const asyncHandler = require('../middleware/asyncHandler');
+const { createHttpError } = require('../utils/httpError');
 
 const router = express.Router();
 
 // Get wallet balance
-router.get('/balance', authenticateJWT, async (req, res) => {
-  try {
-    const wallet = await database.db('wallets').where({ user_id: req.user.id }).first();
-    if (!wallet) return res.status(404).json({ success: false, error: 'Wallet not found' });
-    res.json({ success: true, balance: wallet.balance, currency: wallet.currency });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
+router.get('/balance', authenticateJWT, asyncHandler(async (req, res) => {
+  const wallet = await database.db('wallets').where({ user_id: req.user.id }).first();
+  if (!wallet) throw createHttpError(404, 'Wallet not found', 'WALLET_NOT_FOUND');
+  res.json({ success: true, balance: wallet.balance, currency: wallet.currency });
+}));
 
 // Get transaction history
-router.get('/transactions', authenticateJWT, async (req, res) => {
-  try {
-    const transactions = await database.db('transactions').where({ user_id: req.user.id }).orderBy('created_at', 'desc');
-    res.json({ success: true, transactions });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
+router.get('/transactions', authenticateJWT, asyncHandler(async (req, res) => {
+  const transactions = await database.db('transactions').where({ user_id: req.user.id }).orderBy('created_at', 'desc');
+  res.json({ success: true, transactions });
+}));
 
 // Initiate payment (Flutterwave)
-router.post('/pay', authenticateJWT, async (req, res) => {
-  try {
-    const { amount, description } = req.body;
-    const tx_ref = `TXN-${Date.now()}-${req.user.id}`;
+router.post('/pay', authenticateJWT, asyncHandler(async (req, res) => {
+  const { amount, description } = req.body;
+  if (!amount || Number(amount) <= 0) throw createHttpError(400, 'Valid amount is required', 'INVALID_AMOUNT');
 
-    await database.db('transactions').insert({
-      user_id: req.user.id,
-      tx_ref,
-      type: 'tuition',
-      amount,
-      currency: 'NGN',
-      status: 'pending',
-      description
-    });
+  const tx_ref = `TXN-${Date.now()}-${req.user.id}`;
 
-    res.json({ success: true, tx_ref, amount });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
+  await database.db('transactions').insert({
+    user_id: req.user.id,
+    tx_ref,
+    type: 'tuition',
+    amount,
+    currency: 'NGN',
+    status: 'pending',
+    description
+  });
+
+  res.json({ success: true, tx_ref, amount });
+}));
 
 module.exports = router;

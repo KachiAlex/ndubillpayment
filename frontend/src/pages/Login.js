@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -56,6 +57,16 @@ const Login = () => {
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
                 {error}
+              </div>
+            )}
+
+            {loading && (
+              <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+                <LoadingSpinner
+                  compact
+                  title="Signing you in"
+                  message="Validating your credentials and restoring your session."
+                />
               </div>
             )}
 
@@ -127,7 +138,7 @@ const Login = () => {
               disabled={loading}
               className="w-full py-3 px-4 rounded-lg font-semibold text-white bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Logging in...' : 'Login'}
+              {loading ? 'Signing in…' : 'Login'}
             </button>
           </form>
 
