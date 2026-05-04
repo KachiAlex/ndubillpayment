@@ -244,6 +244,7 @@ router.post('/forgot-password', validate(forgotPasswordSchema), asyncHandler(asy
   const user = await database.db('users').where({ email: email.toLowerCase() }).first();
 
   if (!user) {
+    console.log('[Forgot Password] Email not found:', email);
     return res.json({ success: true, message: 'If the email exists, a reset link has been sent' });
   }
 
@@ -278,7 +279,13 @@ router.post('/forgot-password', validate(forgotPasswordSchema), asyncHandler(asy
     `
   };
 
-  await transporter.sendMail(mailOptions);
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log('[Forgot Password] Reset email sent to:', user.email);
+  } catch (emailError) {
+    console.error('[Forgot Password] Failed to send email:', emailError.message);
+    // Continue with the response even if email fails (for development)
+  }
 
   await AuditLogger.log({
     action: 'password_reset_requested',
