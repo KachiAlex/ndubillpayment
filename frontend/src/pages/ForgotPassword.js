@@ -8,7 +8,6 @@ const ForgotPassword = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  const [resetData, setResetData] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -27,9 +26,6 @@ const ForgotPassword = () => {
       
       if (data.success) {
         setSuccess(true);
-        if (data.resetToken || data.resetUrl) {
-          setResetData({ token: data.resetToken, url: data.resetUrl });
-        }
       } else {
         setError(data.error || 'Failed to send reset email');
       }
@@ -67,16 +63,8 @@ const ForgotPassword = () => {
               </div>
               <h2 className="text-2xl font-bold text-gray-800">Check Your Email</h2>
               <p className="text-gray-600">
-                {resetData ? 'Email not configured. Use the reset link below for development.' : 'If the email exists, a password reset link has been sent to your email address.'}
+                A password reset link has been sent to your email address. Please check your inbox (and spam folder) to reset your password.
               </p>
-              {resetData && resetData.url && (
-                <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                  <p className="text-sm text-gray-600 mb-2">Reset Link (Development):</p>
-                  <a href={resetData.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline break-all text-sm">
-                    {resetData.url}
-                  </a>
-                </div>
-              )}
               <Link
                 to="/login"
                 className="inline-block px-6 py-3 bg-gradient-to-r from-green-500 to-blue-600 text-white rounded-lg hover:from-green-600 hover:to-blue-700 transition font-semibold"

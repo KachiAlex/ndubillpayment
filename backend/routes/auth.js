@@ -56,12 +56,12 @@ const resetPasswordSchema = Joi.object({
 
 // Email transporter configuration
 const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+  host: process.env.EMAIL_HOST || 'smtp.sendgrid.net',
   port: process.env.EMAIL_PORT || 587,
   secure: false,
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
+    user: process.env.EMAIL_USER || 'apikey',
+    pass: process.env.EMAIL_PASS || process.env.SENDGRID_API_KEY
   }
 });
 
@@ -264,43 +264,74 @@ router.post('/forgot-password', validate(forgotPasswordSchema), asyncHandler(asy
   const mailOptions = {
     from: process.env.EMAIL_FROM || 'noreply@ndu.edu.ng',
     to: user.email,
-    subject: 'Password Reset Request - NDU Portal',
+    subject: 'Reset Your NDU Portal Password',
+    headers: {
+      'X-Priority': '1',
+      'X-MSMail-Priority': 'High',
+      'Importance': 'high'
+    },
     html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #333;">Password Reset Request</h2>
-        <p>Hello ${user.first_name},</p>
-        <p>You requested a password reset for your NDU Portal account.</p>
-        <p>Click the link below to reset your password:</p>
-        <a href="${resetUrl}" style="display: inline-block; padding: 12px 24px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 4px; margin: 16px 0;">Reset Password</a>
-        <p>This link will expire in 1 hour.</p>
-        <p>If you didn't request this password reset, please ignore this email.</p>
-        <p>Best regards,<br>NDU Portal Team</p>
-      </div>
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Password Reset</title>
+      </head>
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; background-color: #f6f6f6;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
+          <div style="background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%); padding: 30px; text-align: center;">
+            <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">NDU Portal</h1>
+          </div>
+          <div style="padding: 40px 30px;">
+            <h2 style="margin: 0 0 20px; color: #1f2937; font-size: 22px; font-weight: 600;">Password Reset Request</h2>
+            <p style="margin: 0 0 24px; color: #4b5563; line-height: 1.6;">Hello ${user.first_name},</p>
+            <p style="margin: 0 0 24px; color: #4b5563; line-height: 1.6;">We received a request to reset your password for your NDU Portal account. Click the button below to create a new password:</p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${resetUrl}" style="display: inline-block; padding: 14px 32px; background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%); color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">Reset Password</a>
+            </div>
+            <p style="margin: 0 0 16px; color: #4b5563; line-height: 1.6;">This link will expire in 1 hour for your security.</p>
+            <p style="margin: 0 0 24px; color: #4b5563; line-height: 1.6;">If you didn't request this password reset, please ignore this email. Your account remains secure.</p>
+            <div style="border-top: 1px solid #e5e7eb; padding-top: 24px; margin-top: 32px;">
+              <p style="margin: 0; color: #9ca3af; font-size: 14px;">Best regards,<br>NDU Portal Team</p>
+            </div>
+          </div>
+          <div style="background-color: #f9fafb; padding: 20px 30px; text-align: center;">
+            <p style="margin: 0; color: #9ca3af; font-size: 12px;">This is an automated email. Please do not reply to this message.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `,
+    text: `
+      Password Reset Request
+      
+      Hello ${user.first_name},
+      
+      We received a request to reset your password for your NDU Portal account. 
+      Visit the following link to create a new password:
+      
+      ${resetUrl}
+      
+      This link will expire in 1 hour for your security.
+      
+      If you didn't request this password reset, please ignore this email. 
+      Your account remains secure.
+      
+      Best regards,
+      NDU Portal Team
     `
   };
 
-  let emailSent = false;
   try {
     await transporter.sendMail(mailOptions);
     console.log('[Forgot Password] Reset email sent to:', user.email);
-    emailSent = true;
   } catch (emailError) {
     console.error('[Forgot Password] Failed to send email:', emailError.message);
-    // Continue with the response even if email fails (for development)
+    throw createHttpError(500, 'Failed to send password reset email. Please try again later.', 'EMAIL_SEND_FAILED');
   }
 
-  // For development, return the reset token in the response if email wasn't sent
-  const responseData = {
-    success: true,
-    message: emailSent ? 'Password reset link has been sent to your email' : 'Email not configured. Use the reset link below for development.',
-  };
-
-  if (!emailSent) {
-    responseData.resetToken = resetToken;
-    responseData.resetUrl = resetUrl;
-  }
-
-  res.json(responseData);
+  res.json({ success: true, message: 'Password reset link has been sent to your email' });
 }));
 
 // Verify reset token
