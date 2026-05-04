@@ -36,6 +36,7 @@ const WalletPayment = () => {
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [paymentRef, setPaymentRef] = useState('');
   const autoStartAttempted = useRef(false);
+  const statusPollRef = useRef(null);
 
   const matricNumber = useMemo(() => searchParams.get('matric_number'), [searchParams]);
   const amountParam = useMemo(() => searchParams.get('amount'), [searchParams]);
@@ -75,6 +76,51 @@ const WalletPayment = () => {
     const numericAmount = Number(amount);
     return Number.isNaN(numericAmount) ? '' : numericAmount.toLocaleString('en-NG');
   }, [amount]);
+
+  const stopStatusPolling = useCallback(() => {
+    if (statusPollRef.current) {
+      window.clearInterval(statusPollRef.current);
+      statusPollRef.current = null;
+    }
+  }, []);
+
+  const waitForPaymentCompletion = useCallback(async (txRef) => {
+    if (!txRef) return;
+
+    stopStatusPolling();
+
+    const checkStatus = async () => {
+      try {
+        const data = await apiFetch(`/public/transactions/${encodeURIComponent(txRef)}`);
+        if (data?.transaction?.status === 'completed') {
+          stopStatusPolling();
+          setPaymentRef(txRef);
+          setPaymentSuccess(true);
+          setInitiatingPayment(false);
+          return true;
+        }
+      } catch (err) {
+        console.warn('[Public Payment] Status check failed:', err);
+      }
+
+      return false;
+    };
+
+    await checkStatus();
+
+    statusPollRef.current = window.setInterval(async () => {
+      const done = await checkStatus();
+      if (done) {
+        stopStatusPolling();
+      }
+    }, 2500);
+  }, [stopStatusPolling]);
+
+  useEffect(() => {
+    return () => {
+      stopStatusPolling();
+    };
+  }, [stopStatusPolling]);
 
   const handleProceedToPayment = useCallback(async () => {
     const numericAmount = Number(amount);
@@ -118,6 +164,7 @@ const WalletPayment = () => {
       }
 
       const txRef = intent?.payment?.tx_ref || `QR-${Date.now()}-${String(student.matric_number || matricNumber).replace(/[^a-zA-Z0-9]/g, '').slice(-8)}`;
+      const callbackUrl = `${window.location.origin}/payment/callback?tx_ref=${encodeURIComponent(txRef)}&matric_number=${encodeURIComponent(student.matric_number)}&amount=${encodeURIComponent(String(numericAmount))}`;
 
       window.FlutterwaveCheckout({
         public_key: flutterwavePublicKey,
@@ -125,6 +172,7 @@ const WalletPayment = () => {
         amount: numericAmount,
         currency: 'NGN',
         payment_options: 'card,banktransfer,ussd',
+        redirect_url: callbackUrl,
         customer: {
           email: student.email,
           name: `${student.first_name || ''} ${student.last_name || ''}`.trim(),
@@ -142,13 +190,16 @@ const WalletPayment = () => {
           console.log('[Public Payment] Flutterwave response:', response);
           if (response?.status === 'successful' || response?.status === 'completed') {
             setPaymentRef(response.tx_ref || txRef);
-            setPaymentSuccess(true);
+            waitForPaymentCompletion(response.tx_ref || txRef);
           } else {
             setError('Payment was not completed');
           }
           setInitiatingPayment(false);
         },
         onclose: function () {
+          if (txRef) {
+            waitForPaymentCompletion(txRef);
+          }
           setInitiatingPayment(false);
         }
       });
@@ -157,7 +208,7 @@ const WalletPayment = () => {
       setError(err.message || 'Failed to open payment gateway');
       setInitiatingPayment(false);
     }
-  }, [amount, flutterwavePublicKey, matricNumber, student]);
+  }, [amount, flutterwavePublicKey, matricNumber, student, waitForPaymentCompletion]);
 
   useEffect(() => {
     if (!loading && student && amountParam && !autoStartAttempted.current && !error) {

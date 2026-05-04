@@ -1,13 +1,41 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useQuery } from 'react-query';
+import { useNavigate } from 'react-router-dom';
 import { useSearchParams } from 'react-router-dom';
 import { apiFetch } from '../api/config';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { useAuth } from '../contexts/AuthContext';
+
+const loadFlutterwaveScript = () => {
+  if (window.FlutterwaveCheckout) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve, reject) => {
+    const existingScript = document.querySelector('script[src="https://checkout.flutterwave.com/v3.js"]');
+    if (existingScript) {
+      existingScript.addEventListener('load', resolve, { once: true });
+      existingScript.addEventListener('error', reject, { once: true });
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://checkout.flutterwave.com/v3.js';
+    script.async = true;
+    script.onload = resolve;
+    script.onerror = () => reject(new Error('Unable to load Flutterwave checkout'));
+    document.body.appendChild(script);
+  });
+};
 
 const Wallet = () => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [amount, setAmount] = useState('');
   const [amountDisplay, setAmountDisplay] = useState('');
+  const flutterwavePublicKey = process.env.REACT_APP_FLUTTERWAVE_PUBLIC_KEY;
+  const refreshToken = searchParams.get('refresh');
 
   useEffect(() => {
     const amountParam = searchParams.get('amount');
@@ -29,19 +57,67 @@ const Wallet = () => {
     setAmount(formatted.replace(/,/g, ''));
   };
 
-  const { data: wallet, isLoading } = useQuery(['wallet-balance'], async () => {
+  const { data: wallet, isLoading } = useQuery(['wallet-balance', refreshToken], async () => {
     const data = await apiFetch('/wallet/balance');
     return data;
+  }, {
+    refetchOnMount: 'always'
   });
 
-  const handleFundWallet = () => {
-    // This would integrate with Flutterwave
-    console.log('Funding wallet with amount:', amount);
-    if (amount && amount > 0) {
-      const flutterwaveUrl = `https://checkout.flutterwave.com/v3/hosted/pay?amount=${amount}&currency=NGN&tx_ref=${Date.now()}`;
-      window.location.href = flutterwaveUrl;
+  const handleFundWallet = useCallback(async () => {
+    const numericAmount = Number(amount);
+
+    if (!numericAmount || numericAmount <= 0) {
+      return;
     }
-  };
+
+    if (!flutterwavePublicKey) {
+      return;
+    }
+
+    const data = await apiFetch('/wallet/pay', {
+      method: 'POST',
+      body: JSON.stringify({ amount: numericAmount, description: 'Wallet funding' })
+    });
+
+    await loadFlutterwaveScript();
+
+    if (typeof window.FlutterwaveCheckout !== 'function') {
+      throw new Error('Flutterwave checkout could not be loaded');
+    }
+
+    const txRef = data?.tx_ref || `TXN-${Date.now()}`;
+    const callbackUrl = `${window.location.origin}/payment/callback?tx_ref=${encodeURIComponent(txRef)}&amount=${encodeURIComponent(String(numericAmount))}`;
+
+    window.FlutterwaveCheckout({
+      public_key: flutterwavePublicKey,
+      tx_ref: txRef,
+      amount: numericAmount,
+      currency: 'NGN',
+      payment_options: 'card,banktransfer,ussd',
+      redirect_url: callbackUrl,
+      customer: {
+        email: user?.email || '',
+        name: `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Wallet Funding',
+        phonenumber: ''
+      },
+      customizations: {
+        title: 'NDU Wallet Funding',
+        description: 'Add money to your student wallet'
+      },
+      meta: {
+        payment_source: 'wallet_topup'
+      },
+      callback: function (response) {
+        if (response?.status === 'successful' || response?.status === 'completed') {
+          navigate(`/payment/callback?tx_ref=${encodeURIComponent(response.tx_ref || txRef)}&amount=${encodeURIComponent(String(numericAmount))}`);
+        }
+      },
+      onclose: function () {
+        navigate(`/payment/callback?tx_ref=${encodeURIComponent(txRef)}&amount=${encodeURIComponent(String(numericAmount))}`);
+      }
+    });
+  }, [amount, flutterwavePublicKey, navigate, user?.email, user?.first_name, user?.last_name]);
 
   return (
     <div className="space-y-4 sm:space-y-6">

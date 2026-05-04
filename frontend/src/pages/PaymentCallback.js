@@ -1,28 +1,65 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { apiFetch } from '../api/config';
 
 const PaymentCallback = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [status, setStatus] = useState('processing');
+  const pollRef = useRef(null);
 
   useEffect(() => {
-    const status = searchParams.get('status');
-    
-    if (status === 'successful') {
-      setStatus('success');
-      // Redirect to dashboard after 3 seconds
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 3000);
-    } else {
-      setStatus('failed');
-      // Redirect to wallet after 3 seconds
-      setTimeout(() => {
-        navigate('/wallet');
-      }, 3000);
+    const txRef = searchParams.get('tx_ref');
+    const flutterwaveStatus = searchParams.get('status');
+
+    const clearPolling = () => {
+      if (pollRef.current) {
+        window.clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
+
+    const finalizePayment = async () => {
+      if (!txRef) {
+        if (flutterwaveStatus === 'successful') {
+          setStatus('success');
+          setTimeout(() => navigate(`/wallet?refresh=${Date.now()}`, { replace: true }), 2500);
+        } else {
+          setStatus('failed');
+          setTimeout(() => navigate(`/wallet?refresh=${Date.now()}`, { replace: true }), 2500);
+        }
+        return;
+      }
+
+      try {
+        const data = await apiFetch(`/public/transactions/${encodeURIComponent(txRef)}`);
+        if (data?.transaction?.status === 'completed') {
+          clearPolling();
+          setStatus('success');
+          setTimeout(() => navigate(`/wallet?refresh=${Date.now()}`, { replace: true }), 2500);
+          return;
+        }
+
+        if (flutterwaveStatus && flutterwaveStatus !== 'successful') {
+          clearPolling();
+          setStatus('failed');
+          setTimeout(() => navigate(`/wallet?refresh=${Date.now()}`, { replace: true }), 2500);
+        }
+      } catch (err) {
+        console.warn('[PaymentCallback] Status check failed:', err);
+      }
+    };
+
+    finalizePayment();
+
+    if (txRef) {
+      pollRef.current = window.setInterval(finalizePayment, 2500);
     }
-  }, [searchParams, navigate]);
+
+    return () => {
+      clearPolling();
+    };
+  }, [navigate, searchParams]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -31,7 +68,7 @@ const PaymentCallback = () => {
           <div>
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
             <h2 className="mt-4 text-xl font-semibold text-gray-900">Processing Payment...</h2>
-            <p className="mt-2 text-gray-600">Please wait while we verify your payment</p>
+            <p className="mt-2 text-gray-600">Please wait while we verify your payment and update your wallet.</p>
           </div>
         )}
         
@@ -43,8 +80,8 @@ const PaymentCallback = () => {
               </svg>
             </div>
             <h2 className="mt-4 text-xl font-semibold text-gray-900">Payment Successful!</h2>
-            <p className="mt-2 text-gray-600">Your wallet has been funded successfully</p>
-            <p className="mt-1 text-sm text-gray-500">Redirecting to dashboard...</p>
+            <p className="mt-2 text-gray-600">Your wallet has been funded successfully.</p>
+            <p className="mt-1 text-sm text-gray-500">Redirecting to wallet...</p>
           </div>
         )}
         
@@ -56,7 +93,7 @@ const PaymentCallback = () => {
               </svg>
             </div>
             <h2 className="mt-4 text-xl font-semibold text-gray-900">Payment Failed</h2>
-            <p className="mt-2 text-gray-600">There was an issue processing your payment</p>
+            <p className="mt-2 text-gray-600">There was an issue processing your payment.</p>
             <p className="mt-1 text-sm text-gray-500">Redirecting to wallet...</p>
           </div>
         )}

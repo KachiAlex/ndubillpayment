@@ -114,4 +114,28 @@ router.post('/payment-intents', asyncHandler(async (req, res) => {
   });
 }));
 
+// Check the status of a public payment intent by tx_ref
+router.get('/transactions/:txRef', asyncHandler(async (req, res) => {
+  const txRef = typeof req.params.txRef === 'string' ? req.params.txRef.trim() : '';
+
+  if (!txRef) {
+    throw createHttpError(400, 'Transaction reference is required', 'TX_REF_REQUIRED');
+  }
+
+  const transaction = await database.db('transactions')
+    .where({ tx_ref: txRef })
+    .select('tx_ref', 'type', 'amount', 'currency', 'status', 'payment_method', 'description', 'created_at', 'updated_at')
+    .first();
+
+  if (!transaction) {
+    return res.status(404).json({
+      success: false,
+      error: 'Transaction not found',
+      code: 'TRANSACTION_NOT_FOUND'
+    });
+  }
+
+  res.json({ success: true, transaction });
+}));
+
 module.exports = router;

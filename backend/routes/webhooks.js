@@ -1,6 +1,5 @@
 const express = require('express');
 const database = require('../utils/database');
-const crypto = require('crypto');
 const asyncHandler = require('../middleware/asyncHandler');
 const { createHttpError } = require('../utils/httpError');
 
@@ -11,9 +10,8 @@ router.post('/flutterwave', express.raw({ type: 'application/json' }), asyncHand
   const secret = process.env.FLUTTERWAVE_WEBHOOK_SECRET || process.env.FLUTTERWAVE_SECRET_KEY;
   const signature = req.headers['verif-hash'];
 
-  if (secret && signature) {
-    const expected = crypto.createHmac('sha256', secret).update(req.body).digest('hex');
-    if (signature !== expected) {
+  if (secret) {
+    if (!signature || String(signature).trim() !== String(secret).trim()) {
       throw createHttpError(401, 'Invalid signature', 'INVALID_SIGNATURE');
     }
   }
