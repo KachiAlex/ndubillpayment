@@ -9,11 +9,30 @@ const { createHttpError } = require('../utils/httpError');
 
 const router = express.Router();
 
+function normalizeOptionalDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString().slice(0, 10);
+}
+
+function hasFeeDeadlinePassed(dueDate) {
+  if (!dueDate) return false;
+  const deadline = new Date(dueDate);
+  if (Number.isNaN(deadline.getTime())) return false;
+  deadline.setHours(23, 59, 59, 999);
+  return new Date() > deadline;
+}
+
 // ── BURSAR: Create a fee ──
 router.post('/', authenticateJWT, authorizeRoles('bursar', 'admin'), asyncHandler(async (req, res) => {
-  const { name, amount, academic_session, department, level, description } = req.body;
+  const { name, amount, academic_session, department, level, description, due_date } = req.body;
   if (!name || !amount || !academic_session) {
     throw createHttpError(400, 'name, amount, and academic_session are required', 'VALIDATION_ERROR');
+  }
+
+  const normalizedDueDate = normalizeOptionalDate(due_date);
+  if (due_date && !normalizedDueDate) {
+    throw createHttpError(400, 'Invalid due date format', 'INVALID_DUE_DATE');
   }
 
   const [fee] = await database.db('fees').insert({
@@ -23,6 +42,7 @@ router.post('/', authenticateJWT, authorizeRoles('bursar', 'admin'), asyncHandle
     department: department === 'ALL' ? null : (department || null),
     level: level || null,
     description: description || null,
+    due_date: normalizedDueDate,
     created_by: req.user.id
   }).returning('*');
 
@@ -33,7 +53,7 @@ router.post('/', authenticateJWT, authorizeRoles('bursar', 'admin'), asyncHandle
     userType: req.user.user_type,
     entityType: 'fee',
     entityId: fee.id,
-    newValues: { name, amount, academic_session, department, level, description },
+    newValues: { name, amount, academic_session, department, level, description, due_date: normalizedDueDate },
     req
   });
 
@@ -48,7 +68,11 @@ router.get('/all', authenticateJWT, authorizeRoles('bursar', 'admin'), asyncHand
 
 // ── BURSAR: Update a fee ──
 router.put('/:id', authenticateJWT, authorizeRoles('bursar', 'admin'), asyncHandler(async (req, res) => {
-  const { name, amount, academic_session, department, level, description, is_active } = req.body;
+  const { name, amount, academic_session, department, level, description, is_active, due_date } = req.body;
+  const normalizedDueDate = normalizeOptionalDate(due_date);
+  if (due_date && !normalizedDueDate) {
+    throw createHttpError(400, 'Invalid due date format', 'INVALID_DUE_DATE');
+  }
   const [fee] = await database.db('fees')
     .where({ id: req.params.id })
     .update({ 
@@ -58,6 +82,7 @@ router.put('/:id', authenticateJWT, authorizeRoles('bursar', 'admin'), asyncHand
       department: department === 'ALL' ? null : (department || null), 
       level: level || null, 
       description: description || null, 
+      due_date: normalizedDueDate,
       is_active, 
       updated_at: new Date() 
     })
@@ -71,7 +96,7 @@ router.put('/:id', authenticateJWT, authorizeRoles('bursar', 'admin'), asyncHand
     userType: req.user.user_type,
     entityType: 'fee',
     entityId: fee.id,
-    newValues: { name, amount, academic_session, department, level, description, is_active },
+    newValues: { name, amount, academic_session, department, level, description, due_date: normalizedDueDate, is_active },
     req
   });
 
@@ -195,6 +220,10 @@ router.post('/:id/pay', authenticateJWT, authorizeRoles('student'), asyncHandler
     const fee = await trx('fees').where({ id: req.params.id, is_active: true }).first();
     if (!fee) {
       throw createHttpError(404, 'Fee not found or inactive', 'FEE_NOT_FOUND');
+    }
+
+    if (hasFeeDeadlinePassed(fee.due_date)) {
+      throw createHttpError(403, 'The deadline for this fee has passed', 'FEE_DEADLINE_PASSED');
     }
 
     // Verify student department/level match

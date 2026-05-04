@@ -251,6 +251,9 @@ const StudentDashboard = () => {
   };
 
   const openPaymentDialog = (fee) => {
+    if (isOverdueFee(fee)) {
+      return;
+    }
     const amount = fee.remaining_balance || fee.amount;
     setPaymentDialog({
       open: true,
@@ -514,6 +517,11 @@ const StudentDashboard = () => {
                             {fee.department && ` · ${fee.department}`}
                             {fee.level && ` · ${fee.level}`}
                           </p>
+                          {fee.due_date && !overdue && (
+                            <p className="mt-1 text-xs text-gray-500">
+                              Deadline: {formatDueDate(fee.due_date)}
+                            </p>
+                          )}
                           {overdue && (
                             <p className="mt-1 text-xs font-medium text-red-700">
                               Overdue since {formatDueDate(fee.due_date)}
@@ -557,10 +565,10 @@ const StudentDashboard = () => {
                           {!fee.is_paid && fee.remaining_balance > 0 && (
                             <button
                               onClick={() => openPaymentDialog(fee)}
-                              disabled={walletBalanceNgn < fee.remaining_balance}
+                              disabled={walletBalanceNgn < fee.remaining_balance || overdue}
                               className={`px-3 py-1.5 text-xs text-white rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed ${overdue ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
                             >
-                              {overdue ? 'Pay overdue fee' : 'Pay'}
+                              {overdue ? 'Payment closed' : 'Pay'}
                             </button>
                           )}
                         </div>

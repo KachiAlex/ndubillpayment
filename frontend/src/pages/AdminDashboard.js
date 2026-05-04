@@ -26,7 +26,7 @@ const AdminDashboard = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [feesData, setFeesData] = useState([]);
   const [feesLoading, setFeesLoading] = useState(false);
-  const [feeForm, setFeeForm] = useState({ name: '', amount: '', department: '', level: '', academic_session: '' });
+  const [feeForm, setFeeForm] = useState({ name: '', amount: '', department: '', level: '', academic_session: '', due_date: '' });
   const [amountDisplay, setAmountDisplay] = useState('');
 
   const formatNumberWithCommas = (value) => {
@@ -1248,6 +1248,19 @@ const AdminDashboard = () => {
                   </button>
                 </div>
               )}
+
+              <div className="md:col-span-3">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Deadline (optional)</label>
+                <input
+                  type="date"
+                  value={feeForm.due_date}
+                  onChange={e => setFeeForm(p => ({ ...p, due_date: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Leave blank if the fee should remain payable without a deadline. Updating this date extends or shortens the payment window.
+                </p>
+              </div>
             </div>
             <button
               onClick={async () => {
@@ -1259,7 +1272,7 @@ const AdminDashboard = () => {
                     await createFee(feeForm);
                     toast.success('Fee created');
                   }
-                  setFeeForm({ name: '', amount: '', department: '', level: '', academic_session: '' });
+                  setFeeForm({ name: '', amount: '', department: '', level: '', academic_session: '', due_date: '' });
                   setAmountDisplay('');
                   setEditingFeeId(null);
                   setShowNewDeptInput(false);
@@ -1292,9 +1305,12 @@ const AdminDashboard = () => {
                     <div>
                       <p className="text-sm font-medium text-gray-900">{fee.name}</p>
                       <p className="text-xs text-gray-500">₦{Number(fee.amount).toLocaleString()} · {fee.academic_session} {fee.department ? `· ${fee.department}` : ''} {fee.level ? `· ${fee.level}` : ''}</p>
+                      <p className="text-xs text-gray-500">
+                        {fee.due_date ? `Deadline: ${String(fee.due_date).slice(0, 10)}` : 'No deadline'}
+                      </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button onClick={() => { setFeeForm({ name: fee.name, amount: fee.amount, department: fee.department || 'ALL', level: fee.level || '', academic_session: fee.academic_session }); setAmountDisplay(fee.amount ? Number(fee.amount).toLocaleString('en-US') : ''); setEditingFeeId(fee.id); }} className="text-xs px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition">Edit</button>
+                      <button onClick={() => { setFeeForm({ name: fee.name, amount: fee.amount, department: fee.department || 'ALL', level: fee.level || '', academic_session: fee.academic_session, due_date: fee.due_date ? String(fee.due_date).slice(0, 10) : '' }); setAmountDisplay(fee.amount ? Number(fee.amount).toLocaleString('en-US') : ''); setEditingFeeId(fee.id); }} className="text-xs px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition">Edit</button>
                       <button onClick={async () => { if (window.confirm('Delete this fee?')) { try { await deleteFee(fee.id); const d = await getAllFees(); setFeesData(d.fees || []); toast.success('Fee deleted'); } catch (err) { toast.error('Failed to delete'); } } }} className="text-xs px-3 py-1.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition">Delete</button>
                     </div>
                   </div>
