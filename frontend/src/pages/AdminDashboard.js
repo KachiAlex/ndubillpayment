@@ -32,38 +32,46 @@ const AdminDashboard = () => {
   const [showNewLevelInput, setShowNewLevelInput] = useState(false);
   const [showNewSessionInput, setShowNewSessionInput] = useState(false);
 
+  const fetchJson = async (url, options = {}) => {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`,
+        ...(options.headers || {})
+      }
+    });
+
+    const data = await response.json();
+    if (!response.ok || data.success === false) {
+      throw new Error(data.error || 'Request failed');
+    }
+
+    return data;
+  };
+
   // Fetch departments
-  const { data: departmentsData } = useQuery(
-    ['departments'],
+  const { data: departmentsData, refetch: refetchDepartments } = useQuery(
+    ['admin-departments'],
     async () => {
-      const response = await fetch('/api/public/departments', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      });
-      return response.json();
+      return fetchJson('/api/admin/departments');
     },
     { enabled: activeTab === 'fees' }
   );
 
   // Fetch levels
-  const { data: levelsData } = useQuery(
-    ['levels'],
+  const { data: levelsData, refetch: refetchLevels } = useQuery(
+    ['admin-levels'],
     async () => {
-      const response = await fetch('/api/public/levels', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      });
-      return response.json();
+      return fetchJson('/api/admin/levels');
     },
     { enabled: activeTab === 'fees' }
   );
 
   // Fetch academic sessions
-  const { data: sessionsData } = useQuery(
-    ['academic-sessions'],
+  const { data: sessionsData, refetch: refetchSessions } = useQuery(
+    ['admin-academic-sessions'],
     async () => {
-      const response = await fetch('/api/public/academic-sessions', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      });
-      return response.json();
+      return fetchJson('/api/admin/academic-sessions');
     },
     { enabled: activeTab === 'fees' }
   );
@@ -71,6 +79,14 @@ const AdminDashboard = () => {
   const departments = departmentsData?.departments || [];
   const levels = levelsData?.levels || [];
   const academicSessions = sessionsData?.sessions || [];
+
+  const refreshFeeMetadata = async () => {
+    await Promise.all([
+      refetchDepartments(),
+      refetchLevels(),
+      refetchSessions()
+    ]);
+  };
 
   const handleSaveNewDepartment = async () => {
     if (!feeForm.department) {
@@ -89,9 +105,8 @@ const AdminDashboard = () => {
       const data = await response.json();
       if (data.success) {
         toast.success('Department saved successfully');
-        setShowNewDeptInput(false);
-        // Refetch departments
-        window.location.reload();
+        setFeeForm(p => ({ ...p, department: '' }));
+        await refreshFeeMetadata();
       } else {
         toast.error(data.error || 'Failed to save department');
       }
@@ -117,9 +132,8 @@ const AdminDashboard = () => {
       const data = await response.json();
       if (data.success) {
         toast.success('Level saved successfully');
-        setShowNewLevelInput(false);
-        // Refetch levels
-        window.location.reload();
+        setFeeForm(p => ({ ...p, level: '' }));
+        await refreshFeeMetadata();
       } else {
         toast.error(data.error || 'Failed to save level');
       }
@@ -145,14 +159,67 @@ const AdminDashboard = () => {
       const data = await response.json();
       if (data.success) {
         toast.success('Academic session saved successfully');
-        setShowNewSessionInput(false);
-        // Refetch sessions
-        window.location.reload();
+        setFeeForm(p => ({ ...p, academic_session: '' }));
+        await refreshFeeMetadata();
       } else {
         toast.error(data.error || 'Failed to save academic session');
       }
     } catch (error) {
       toast.error('Failed to save academic session');
+    }
+  };
+
+  const handleDeleteDepartment = async (department) => {
+    if (!window.confirm(`Delete department "${department.name}"?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/departments/${department.id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast.success('Department removed successfully');
+        if (feeForm.department === department.name) {
+          setFeeForm(p => ({ ...p, department: '' }));
+        }
+        await refreshFeeMetadata();
+      } else {
+        toast.error(data.error || 'Failed to delete department');
+      }
+    } catch (error) {
+      toast.error('Failed to delete department');
+    }
+  };
+
+  const handleDeleteLevel = async (level) => {
+    if (!window.confirm(`Delete level "${level.name}"?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/levels/${level.id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast.success('Level removed successfully');
+        if (feeForm.level === level.name) {
+          setFeeForm(p => ({ ...p, level: '' }));
+        }
+        await refreshFeeMetadata();
+      } else {
+        toast.error(data.error || 'Failed to delete level');
+      }
+    } catch (error) {
+      toast.error('Failed to delete level');
     }
   };
 
@@ -586,7 +653,7 @@ const AdminDashboard = () => {
                           {transaction.first_name} {transaction.last_name}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {transaction.matric_no}
+                          {transaction.matric_number}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {transaction.department}
@@ -652,7 +719,7 @@ const AdminDashboard = () => {
                         {user.email}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {user.matric_no}
+                        {user.matric_number}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {user.department}
@@ -732,7 +799,7 @@ const AdminDashboard = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {transaction.reference}
+                        {transaction.tx_ref}
                       </td>
                     </tr>
                   ))
@@ -827,7 +894,7 @@ const AdminDashboard = () => {
                             {transaction.first_name} {transaction.last_name}
                           </td>
                           <td className="py-3 px-2 text-gray-600">
-                            {transaction.matric_no}
+                            {transaction.matric_number}
                           </td>
                           <td className="py-3 px-2 text-gray-600">
                             {transaction.department}
@@ -836,7 +903,7 @@ const AdminDashboard = () => {
                             ₦{transaction.amount?.toLocaleString()}
                           </td>
                           <td className="py-3 px-2 text-gray-600 font-mono text-xs">
-                            {transaction.reference}
+                            {transaction.tx_ref}
                           </td>
                           <td className="py-3 px-2">
                             <button
@@ -904,7 +971,7 @@ const AdminDashboard = () => {
                   >
                     <option value="">Select department</option>
                     {departments.map(dept => (
-                      <option key={dept} value={dept}>{dept}</option>
+                      <option key={dept.id} value={dept.name}>{dept.name}</option>
                     ))}
                   </select>
                   <button
@@ -916,6 +983,29 @@ const AdminDashboard = () => {
                   </button>
                 </div>
               )}
+
+              <div className="md:col-span-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700">Departments</span>
+                  <span className="text-xs text-gray-500">{departments.length} saved</span>
+                </div>
+                <div className="max-h-40 overflow-y-auto space-y-2 rounded-xl border border-gray-100 bg-gray-50 p-3">
+                  {departments.length > 0 ? departments.map(dept => (
+                    <div key={dept.id} className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2 shadow-sm">
+                      <span className="text-sm text-gray-800">{dept.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteDepartment(dept)}
+                        className="rounded-lg px-3 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 transition"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )) : (
+                    <div className="text-sm text-gray-500">No departments saved yet.</div>
+                  )}
+                </div>
+              </div>
 
               {/* Level field with dropdown and create option */}
               {showNewLevelInput ? (
@@ -948,7 +1038,7 @@ const AdminDashboard = () => {
                   >
                     <option value="">Select level</option>
                     {levels.map(lvl => (
-                      <option key={lvl} value={lvl}>{lvl}</option>
+                      <option key={lvl.id} value={lvl.name}>{lvl.name}</option>
                     ))}
                   </select>
                   <button
@@ -960,6 +1050,29 @@ const AdminDashboard = () => {
                   </button>
                 </div>
               )}
+
+              <div className="md:col-span-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-gray-700">Levels</span>
+                  <span className="text-xs text-gray-500">{levels.length} saved</span>
+                </div>
+                <div className="max-h-40 overflow-y-auto space-y-2 rounded-xl border border-gray-100 bg-gray-50 p-3">
+                  {levels.length > 0 ? levels.map(level => (
+                    <div key={level.id} className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2 shadow-sm">
+                      <span className="text-sm text-gray-800">{level.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteLevel(level)}
+                        className="rounded-lg px-3 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 transition"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )) : (
+                    <div className="text-sm text-gray-500">No levels saved yet.</div>
+                  )}
+                </div>
+              </div>
 
               {/* Academic session field with dropdown and create option */}
               {showNewSessionInput ? (
@@ -992,7 +1105,7 @@ const AdminDashboard = () => {
                   >
                     <option value="">Select academic session</option>
                     {academicSessions.map(session => (
-                      <option key={session} value={session}>{session}</option>
+                      <option key={session.id} value={session.name}>{session.name}</option>
                     ))}
                   </select>
                   <button

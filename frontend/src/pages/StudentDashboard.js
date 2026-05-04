@@ -163,8 +163,9 @@ const StudentDashboard = () => {
     const generateWalletQR = async () => {
       try {
         const user = JSON.parse(localStorage.getItem('user'));
-        if (user?.matric_no) {
-          const qrCode = await qrCodeService.generateWalletQR(user.matric_no, 50000); // Default amount
+        const matricNumber = user?.matric_number;
+        if (matricNumber) {
+          const qrCode = await qrCodeService.generateWalletQR(matricNumber, 50000); // Default amount
           setQrCodeDataURL(qrCode);
         }
       } catch (error) {
@@ -681,21 +682,16 @@ const StudentDashboard = () => {
               <div className="px-6 py-10 text-center text-gray-500">No transactions yet</div>
             ) : (
               recentTx.map(tx => (
-                <div key={tx.reference} className="px-6 py-4 flex items-center justify-between">
+                <div key={tx.id || tx.tx_ref} className="px-6 py-4 flex items-center justify-between">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900">Ref: {tx.reference}</p>
-                    <p className="text-xs text-gray-500">{tx.date}</p>
+                    <p className="text-sm font-medium text-gray-900">Ref: {tx.tx_ref}</p>
+                    <p className="text-xs text-gray-500">{tx.created_at ? new Date(tx.created_at).toLocaleString() : ''}</p>
                   </div>
                   <div className="flex items-center gap-4">
-                    <span className={`text-sm font-semibold ${tx.status === 'successful' ? 'text-green-600' : tx.status === 'failed' ? 'text-red-600' : 'text-gray-600'}`}>
+                    <span className={`text-sm font-semibold ${tx.status === 'completed' ? 'text-green-600' : tx.status === 'failed' ? 'text-red-600' : 'text-gray-600'}`}>
                       {tx.status}
                     </span>
                     <span className="text-sm font-bold text-gray-900">₦{Number(tx.amount || 0).toLocaleString()}</span>
-                    {tx.status === 'successful' && tx.receipt_id && (
-                      <a href={`/api/wallet/receipt/${tx.receipt_id}`} className="text-sm text-blue-600 hover:text-blue-700">
-                        Download receipt
-                      </a>
-                    )}
                   </div>
                 </div>
               ))

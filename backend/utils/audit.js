@@ -33,7 +33,6 @@ class AuditLogger {
         action,
         user_id: userId || null,
         entity_type: entityType,
-        entity_id: entityId,
         old_values: oldValues ? JSON.stringify(oldValues) : null,
         new_values: newValues ? JSON.stringify(newValues) : null,
         ip_address: req?.ip || req?.headers['x-forwarded-for'] || null,
@@ -47,6 +46,11 @@ class AuditLogger {
       } else if (userEmail) {
         auditData.user_email = userEmail;
         auditData.user_type = userType;
+      }
+
+      // Only include entity_id if it's provided (schema compatibility)
+      if (entityId !== null) {
+        auditData.entity_id = entityId;
       }
 
       await database.db('audit_logs').insert(auditData);

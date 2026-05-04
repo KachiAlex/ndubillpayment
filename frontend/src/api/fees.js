@@ -7,14 +7,27 @@ export const payFee = (feeId, data = {}) => apiFetch(`/fees/${feeId}/pay`, {
 });
 export const getFeePayments = () => apiFetch('/fees/payments');
 export const getFeeHistory = (feeId) => apiFetch(`/fees/${feeId}/history`);
-export const downloadFeeReceipt = (paymentId) => {
-  const url = `/api/fees/payments/${paymentId}/receipt`;
+export const downloadFeeReceipt = async (paymentId) => {
+  const response = await fetch(`/api/fees/payments/${paymentId}/receipt`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${localStorage.getItem('token')}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to download receipt');
+  }
+
+  const blob = await response.blob();
+  const downloadUrl = window.URL.createObjectURL(blob);
   const link = document.createElement('a');
-  link.href = url;
-  link.setAttribute('download', `receipt-${paymentId}.pdf`);
+  link.href = downloadUrl;
+  link.download = `receipt-${paymentId}.pdf`;
   document.body.appendChild(link);
   link.click();
-  link.remove();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(downloadUrl);
 };
 
 // Bursar endpoints

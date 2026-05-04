@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useQuery } from 'react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -20,6 +21,34 @@ const Signup = () => {
   
   const { register } = useAuth();
   const navigate = useNavigate();
+
+  const { data: departmentsData } = useQuery(
+    ['signup-departments'],
+    async () => {
+      const response = await fetch('/api/public/departments');
+      return response.json();
+    }
+  );
+
+  const { data: levelsData } = useQuery(
+    ['signup-levels'],
+    async () => {
+      const response = await fetch('/api/public/levels');
+      return response.json();
+    }
+  );
+
+  const { data: sessionsData } = useQuery(
+    ['signup-sessions'],
+    async () => {
+      const response = await fetch('/api/public/academic-sessions');
+      return response.json();
+    }
+  );
+
+  const departments = departmentsData?.departments || [];
+  const levels = levelsData?.levels || [];
+  const sessions = sessionsData?.sessions || [];
 
   const handleChange = (e) => {
     setFormData({
@@ -179,16 +208,9 @@ const Signup = () => {
                 onChange={handleChange}
               >
                 <option value="">Select Department</option>
-                <option value="Computer Science">Computer Science</option>
-                <option value="Electrical Engineering">Electrical Engineering</option>
-                <option value="Mechanical Engineering">Mechanical Engineering</option>
-                <option value="Civil Engineering">Civil Engineering</option>
-                <option value="Business Administration">Business Administration</option>
-                <option value="Accounting">Accounting</option>
-                <option value="Economics">Economics</option>
-                <option value="Law">Law</option>
-                <option value="Medicine">Medicine</option>
-                <option value="Pharmacy">Pharmacy</option>
+                {departments.map((department) => (
+                  <option key={department.id} value={department.name}>{department.name}</option>
+                ))}
               </select>
             </div>
 
@@ -205,11 +227,9 @@ const Signup = () => {
                 onChange={handleChange}
               >
                 <option value="">Select Level</option>
-                <option value="100">100 Level</option>
-                <option value="200">200 Level</option>
-                <option value="300">300 Level</option>
-                <option value="400">400 Level</option>
-                <option value="500">500 Level</option>
+                {levels.map((level) => (
+                  <option key={level.id} value={level.name}>{level.name}</option>
+                ))}
               </select>
             </div>
 
@@ -217,16 +237,19 @@ const Signup = () => {
               <label htmlFor="session" className="block text-sm font-medium text-gray-700">
                 Academic Session
               </label>
-              <input
+              <select
                 id="session"
                 name="session"
-                type="text"
                 required
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                placeholder="e.g., 2023/2024"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 value={formData.session}
                 onChange={handleChange}
-              />
+              >
+                <option value="">Select Session</option>
+                {sessions.map((session) => (
+                  <option key={session.id} value={session.name}>{session.name}</option>
+                ))}
+              </select>
             </div>
 
             <div>

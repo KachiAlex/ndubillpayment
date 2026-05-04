@@ -90,6 +90,22 @@ router.post('/register', validate(registerSchema), asyncHandler(async (req, res)
     throw createHttpError(400, 'Email or matric number already registered', 'USER_EXISTS');
   }
 
+  const [departmentExists, levelExists, sessionExists] = await Promise.all([
+    database.db('departments').where({ name: department }).first(),
+    database.db('levels').where({ name: level }).first(),
+    database.db('sessions').where({ name: session }).first()
+  ]);
+
+  if (!departmentExists) {
+    throw createHttpError(400, 'Invalid department selected', 'INVALID_DEPARTMENT');
+  }
+  if (!levelExists) {
+    throw createHttpError(400, 'Invalid level selected', 'INVALID_LEVEL');
+  }
+  if (!sessionExists) {
+    throw createHttpError(400, 'Invalid academic session selected', 'INVALID_SESSION');
+  }
+
   const password_hash = await bcrypt.hash(password, 10);
 
   const [user] = await database.db('users').insert({
@@ -176,6 +192,25 @@ router.put('/profile', authenticateJWT, asyncHandler(async (req, res) => {
   if (department) updateData.department = department;
   if (level) updateData.level = level;
   if (session) updateData.session = session;
+
+  if (department) {
+    const departmentExists = await database.db('departments').where({ name: department }).first();
+    if (!departmentExists) {
+      throw createHttpError(400, 'Invalid department selected', 'INVALID_DEPARTMENT');
+    }
+  }
+  if (level) {
+    const levelExists = await database.db('levels').where({ name: level }).first();
+    if (!levelExists) {
+      throw createHttpError(400, 'Invalid level selected', 'INVALID_LEVEL');
+    }
+  }
+  if (session) {
+    const sessionExists = await database.db('sessions').where({ name: session }).first();
+    if (!sessionExists) {
+      throw createHttpError(400, 'Invalid academic session selected', 'INVALID_SESSION');
+    }
+  }
 
   if (Object.keys(updateData).length === 0) {
     throw createHttpError(400, 'No fields to update', 'NO_UPDATE_FIELDS');

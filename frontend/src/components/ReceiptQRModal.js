@@ -25,13 +25,13 @@ const ReceiptQRModal = ({ isOpen, onClose, transaction }) => {
 
   const handleDownload = () => {
     if (qrCodeDataURL) {
-      qrCodeService.downloadQRCode(qrCodeDataURL, `receipt-${transaction.reference}.png`);
+      qrCodeService.downloadQRCode(qrCodeDataURL, `receipt-${transaction.tx_ref}.png`);
     }
   };
 
   const handlePrint = () => {
     if (qrCodeDataURL) {
-      qrCodeService.printQRCode(qrCodeDataURL, `Receipt - ${transaction.reference}`);
+      qrCodeService.printQRCode(qrCodeDataURL, `Receipt - ${transaction.tx_ref}`);
     }
   };
 
@@ -60,7 +60,7 @@ const ReceiptQRModal = ({ isOpen, onClose, transaction }) => {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-gray-500">Reference:</span>
-                  <p className="font-medium text-gray-900">{transaction.reference}</p>
+                  <p className="font-medium text-gray-900">{transaction.tx_ref}</p>
                 </div>
                 <div>
                   <span className="text-gray-500">Amount:</span>

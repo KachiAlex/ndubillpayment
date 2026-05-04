@@ -30,15 +30,33 @@ router.get('/transactions', asyncHandler(async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 20;
   const offset = (page - 1) * limit;
+  const { status, type } = req.query;
 
-  const transactions = await database.db('transactions')
+  let query = database.db('transactions')
     .join('users', 'transactions.user_id', 'users.id')
-    .select('transactions.*', 'users.first_name', 'users.last_name', 'users.matric_number')
+    .select('transactions.*', 'users.first_name', 'users.last_name', 'users.matric_number');
+
+  if (status) {
+    query = query.where('transactions.status', status);
+  }
+  if (type) {
+    query = query.where('transactions.type', type);
+  }
+
+  const transactions = await query
     .orderBy('transactions.created_at', 'desc')
     .limit(limit)
     .offset(offset);
 
-  const totalCount = await database.db('transactions').count('* as count').first();
+  let countQuery = database.db('transactions');
+  if (status) {
+    countQuery = countQuery.where('status', status);
+  }
+  if (type) {
+    countQuery = countQuery.where('type', type);
+  }
+
+  const totalCount = await countQuery.count('* as count').first();
   const totalPages = Math.ceil(totalCount.count / limit);
 
   res.json({
@@ -66,14 +84,38 @@ router.get('/users', asyncHandler(async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 20;
   const offset = (page - 1) * limit;
+  const { user_type, department, session } = req.query;
 
-  const users = await database.db('users')
-    .select('id', 'email', 'first_name', 'last_name', 'matric_number', 'user_type', 'department', 'level', 'is_verified', 'created_at')
+  let query = database.db('users')
+    .select('id', 'email', 'first_name', 'last_name', 'matric_number', 'user_type', 'department', 'level', 'session', 'is_verified', 'created_at');
+
+  if (user_type) {
+    query = query.where('user_type', user_type);
+  }
+  if (department) {
+    query = query.where('department', department);
+  }
+  if (session) {
+    query = query.where('session', session);
+  }
+
+  const users = await query
     .orderBy('created_at', 'desc')
     .limit(limit)
     .offset(offset);
 
-  const totalCount = await database.db('users').count('* as count').first();
+  let countQuery = database.db('users');
+  if (user_type) {
+    countQuery = countQuery.where('user_type', user_type);
+  }
+  if (department) {
+    countQuery = countQuery.where('department', department);
+  }
+  if (session) {
+    countQuery = countQuery.where('session', session);
+  }
+
+  const totalCount = await countQuery.count('* as count').first();
   const totalPages = Math.ceil(totalCount.count / limit);
 
   res.json({
@@ -115,6 +157,9 @@ router.get('/reports', asyncHandler(async (req, res) => {
   if (department) {
     query = query.where('users.department', department);
   }
+  if (session) {
+    query = query.where('users.session', session);
+  }
 
   const transactions = await query.orderBy('transactions.created_at', 'desc');
 
@@ -135,8 +180,8 @@ router.get('/reports', asyncHandler(async (req, res) => {
 // Get all unique departments (public)
 router.get('/departments', asyncHandler(async (req, res) => {
   const departments = await database.db('departments')
-    .orderBy('name', 'asc')
-    .pluck('name');
+    .select('id', 'name')
+    .orderBy('name', 'asc');
 
   res.json({ success: true, departments });
 }));
@@ -154,7 +199,13 @@ router.post('/departments', asyncHandler(async (req, res) => {
     return res.json({ success: true, department, message: 'Department already exists' });
   }
 
-  await database.db('departments').insert({ name: department });
+  try {
+    await database.db('departments').insert({ name: department });
+    console.log('[ADMIN] Department created:', department);
+  } catch (err) {
+    console.error('[ADMIN] Failed to create department:', err.message);
+    throw createHttpError(500, 'Failed to create department', 'DB_ERROR');
+  }
 
   await AuditLogger.log({
     action: 'department_created',
@@ -169,11 +220,34 @@ router.post('/departments', asyncHandler(async (req, res) => {
   res.json({ success: true, department });
 }));
 
+// Delete department
+router.delete('/departments/:id', asyncHandler(async (req, res) => {
+  const department = await database.db('departments').where({ id: req.params.id }).first();
+  if (!department) {
+    throw createHttpError(404, 'Department not found', 'DEPARTMENT_NOT_FOUND');
+  }
+
+  await database.db('departments').where({ id: req.params.id }).del();
+
+  await AuditLogger.log({
+    action: 'department_deleted',
+    userId: req.user.id,
+    userEmail: req.user.email,
+    userType: req.user.user_type,
+    entityType: 'department',
+    entityId: department.id,
+    oldValues: { name: department.name },
+    req
+  });
+
+  res.json({ success: true, message: 'Department deleted successfully' });
+}));
+
 // Get all unique levels
 router.get('/levels', asyncHandler(async (req, res) => {
   const levels = await database.db('levels')
-    .orderBy('name', 'asc')
-    .pluck('name');
+    .select('id', 'name')
+    .orderBy('name', 'asc');
 
   res.json({ success: true, levels });
 }));
@@ -191,7 +265,13 @@ router.post('/levels', asyncHandler(async (req, res) => {
     return res.json({ success: true, level, message: 'Level already exists' });
   }
 
-  await database.db('levels').insert({ name: level });
+  try {
+    await database.db('levels').insert({ name: level });
+    console.log('[ADMIN] Level created:', level);
+  } catch (err) {
+    console.error('[ADMIN] Failed to create level:', err.message);
+    throw createHttpError(500, 'Failed to create level', 'DB_ERROR');
+  }
 
   await AuditLogger.log({
     action: 'level_created',
@@ -206,11 +286,34 @@ router.post('/levels', asyncHandler(async (req, res) => {
   res.json({ success: true, level });
 }));
 
+// Delete level
+router.delete('/levels/:id', asyncHandler(async (req, res) => {
+  const level = await database.db('levels').where({ id: req.params.id }).first();
+  if (!level) {
+    throw createHttpError(404, 'Level not found', 'LEVEL_NOT_FOUND');
+  }
+
+  await database.db('levels').where({ id: req.params.id }).del();
+
+  await AuditLogger.log({
+    action: 'level_deleted',
+    userId: req.user.id,
+    userEmail: req.user.email,
+    userType: req.user.user_type,
+    entityType: 'level',
+    entityId: level.id,
+    oldValues: { name: level.name },
+    req
+  });
+
+  res.json({ success: true, message: 'Level deleted successfully' });
+}));
+
 // Get all unique academic sessions
 router.get('/academic-sessions', asyncHandler(async (req, res) => {
   const sessions = await database.db('sessions')
-    .orderBy('name', 'desc')
-    .pluck('name');
+    .select('id', 'name')
+    .orderBy('name', 'desc');
 
   res.json({ success: true, sessions });
 }));
@@ -228,7 +331,13 @@ router.post('/academic-sessions', asyncHandler(async (req, res) => {
     return res.json({ success: true, academic_session, message: 'Academic session already exists' });
   }
 
-  await database.db('sessions').insert({ name: academic_session });
+  try {
+    await database.db('sessions').insert({ name: academic_session });
+    console.log('[ADMIN] Academic session created:', academic_session);
+  } catch (err) {
+    console.error('[ADMIN] Failed to create academic session:', err.message);
+    throw createHttpError(500, 'Failed to create academic session', 'DB_ERROR');
+  }
 
   await AuditLogger.log({
     action: 'session_created',
@@ -244,8 +353,12 @@ router.post('/academic-sessions', asyncHandler(async (req, res) => {
 }));
 
 // Download receipt
-router.get('/receipt/:receipt_number', asyncHandler(async (req, res) => {
-  const receipt = await database.db('receipts').where({ receipt_number: req.params.receipt_number }).first();
+router.get('/receipt/:identifier', asyncHandler(async (req, res) => {
+  const identifier = req.params.identifier;
+  const receipt = await database.db('receipts')
+    .where({ transaction_id: identifier })
+    .orWhere({ receipt_number: identifier })
+    .first();
   if (!receipt || !receipt.pdf_base64) {
     throw createHttpError(404, 'Receipt not found', 'RECEIPT_NOT_FOUND');
   }
@@ -336,6 +449,9 @@ router.get('/export/excel', asyncHandler(async (req, res) => {
     if (department) {
       query = query.where('users.department', department);
     }
+    if (session) {
+      query = query.where('users.session', session);
+    }
 
     const transactions = await query.orderBy('transactions.created_at', 'desc');
 
@@ -423,6 +539,9 @@ router.get('/export/csv', asyncHandler(async (req, res) => {
     if (department) {
       query = query.where('users.department', department);
     }
+    if (session) {
+      query = query.where('users.session', session);
+    }
 
     const transactions = await query.orderBy('transactions.created_at', 'desc');
 
@@ -505,6 +624,9 @@ router.get('/export/paid-students/excel', asyncHandler(async (req, res) => {
     if (department) {
       query = query.where('users.department', department);
     }
+    if (session) {
+      query = query.where('users.session', session);
+    }
 
     const students = await query;
 
@@ -577,6 +699,9 @@ router.get('/export/paid-students/csv', asyncHandler(async (req, res) => {
     }
     if (department) {
       query = query.where('users.department', department);
+    }
+    if (session) {
+      query = query.where('users.session', session);
     }
 
     const students = await query;
