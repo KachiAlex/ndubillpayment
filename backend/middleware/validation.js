@@ -10,7 +10,7 @@ function sanitizeString(value) {
 
 function sanitizeEmail(value) {
   if (typeof value !== 'string') return value;
-  return validator.normalizeEmail(value.trim()).toLowerCase();
+  return value.trim().toLowerCase();
 }
 
 function sanitizeNumber(value) {

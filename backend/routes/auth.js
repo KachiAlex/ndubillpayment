@@ -245,7 +245,7 @@ router.post('/forgot-password', validate(forgotPasswordSchema), asyncHandler(asy
 
   if (!user) {
     console.log('[Forgot Password] Email not found:', email);
-    return res.json({ success: true, message: 'If the email exists, a reset link has been sent' });
+    throw createHttpError(404, 'Email not found in our system', 'EMAIL_NOT_FOUND');
   }
 
   const resetToken = crypto.randomBytes(32).toString('hex');
@@ -298,7 +298,7 @@ router.post('/forgot-password', validate(forgotPasswordSchema), asyncHandler(asy
     req
   });
 
-  res.json({ success: true, message: 'If the email exists, a reset link has been sent' });
+  res.json({ success: true, message: 'Password reset link has been sent to your email' });
 }));
 
 // Verify reset token
