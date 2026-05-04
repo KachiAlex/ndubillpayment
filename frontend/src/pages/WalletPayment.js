@@ -157,7 +157,7 @@ const WalletPayment = () => {
       setError(err.message || 'Failed to open payment gateway');
       setInitiatingPayment(false);
     }
-  }, [amount, amountParam, flutterwavePublicKey, matricNumber, navigate, student]);
+  }, [amount, flutterwavePublicKey, matricNumber, student]);
 
   useEffect(() => {
     if (!loading && student && amountParam && !autoStartAttempted.current && !error) {
