@@ -352,6 +352,29 @@ router.post('/academic-sessions', asyncHandler(async (req, res) => {
   res.json({ success: true, academic_session });
 }));
 
+// Delete academic session
+router.delete('/academic-sessions/:id', asyncHandler(async (req, res) => {
+  const session = await database.db('sessions').where({ id: req.params.id }).first();
+  if (!session) {
+    throw createHttpError(404, 'Academic session not found', 'SESSION_NOT_FOUND');
+  }
+
+  await database.db('sessions').where({ id: req.params.id }).del();
+
+  await AuditLogger.log({
+    action: 'session_deleted',
+    userId: req.user.id,
+    userEmail: req.user.email,
+    userType: req.user.user_type,
+    entityType: 'session',
+    entityId: session.id,
+    oldValues: { name: session.name },
+    req
+  });
+
+  res.json({ success: true, message: 'Academic session deleted successfully' });
+}));
+
 // Download receipt
 router.get('/receipt/:identifier', asyncHandler(async (req, res) => {
   const identifier = req.params.identifier;

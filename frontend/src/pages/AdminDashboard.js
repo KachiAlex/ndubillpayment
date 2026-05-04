@@ -31,9 +31,9 @@ const AdminDashboard = () => {
   const [showNewDeptInput, setShowNewDeptInput] = useState(false);
   const [showNewLevelInput, setShowNewLevelInput] = useState(false);
   const [showNewSessionInput, setShowNewSessionInput] = useState(false);
-  const [showDeptDeleteMode, setShowDeptDeleteMode] = useState(false);
-  const [showLevelDeleteMode, setShowLevelDeleteMode] = useState(false);
-  const [showSessionDeleteMode, setShowSessionDeleteMode] = useState(false);
+  const [showDeptManager, setShowDeptManager] = useState(false);
+  const [showLevelManager, setShowLevelManager] = useState(false);
+  const [showSessionManager, setShowSessionManager] = useState(false);
 
   const fetchJson = async (url, options = {}) => {
     const response = await fetch(url, {
@@ -993,51 +993,31 @@ const AdminDashboard = () => {
                   </button>
                 </div>
               ) : (
-                <div className="flex gap-2 flex-col">
-                  <div className="flex gap-2">
-                    <select
-                      value={feeForm.department}
-                      onChange={e => setFeeForm(p => ({ ...p, department: e.target.value }))}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">Select department</option>
-                      {departments.map(dept => (
-                        <option key={dept.id} value={dept.name}>{dept.name}</option>
-                      ))}
-                    </select>
-                    <button
-                      onClick={() => setShowNewDeptInput(true)}
-                      className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition"
-                      title="Create new department"
-                    >
-                      +
-                    </button>
-                    <button
-                      onClick={() => setShowDeptDeleteMode(!showDeptDeleteMode)}
-                      className="px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition"
-                      title="Delete departments"
-                    >
-                      -
-                    </button>
-                  </div>
-                  {showDeptDeleteMode && (
-                    <div className="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                      <p className="text-xs text-gray-500 mb-2">Click - to remove a department:</p>
-                      <div className="space-y-1">
-                        {departments.map(dept => (
-                          <div key={dept.id} className="flex items-center justify-between gap-2 bg-white px-2 py-1 rounded">
-                            <span className="text-sm text-gray-700">{dept.name}</span>
-                            <button
-                              onClick={() => handleDeleteDepartment(dept)}
-                              className="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded transition"
-                            >
-                              -
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                <div className="flex gap-2">
+                  <select
+                    value={feeForm.department}
+                    onChange={e => setFeeForm(p => ({ ...p, department: e.target.value }))}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select department</option>
+                    {departments.map(dept => (
+                      <option key={dept.id} value={dept.name}>{dept.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => setShowNewDeptInput(true)}
+                    className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition"
+                    title="Create new department"
+                  >
+                    +
+                  </button>
+                  <button
+                    onClick={() => setShowDeptManager(true)}
+                    className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
+                    title="Manage departments"
+                  >
+                    ⚙
+                  </button>
                 </div>
               )}
 
@@ -1064,51 +1044,31 @@ const AdminDashboard = () => {
                   </button>
                 </div>
               ) : (
-                <div className="flex gap-2 flex-col">
-                  <div className="flex gap-2">
-                    <select
-                      value={feeForm.level}
-                      onChange={e => setFeeForm(p => ({ ...p, level: e.target.value }))}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">Select level</option>
-                      {levels.map(lvl => (
-                        <option key={lvl.id} value={lvl.name}>{lvl.name}</option>
-                      ))}
-                    </select>
-                    <button
-                      onClick={() => setShowNewLevelInput(true)}
-                      className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition"
-                      title="Create new level"
-                    >
-                      +
-                    </button>
-                    <button
-                      onClick={() => setShowLevelDeleteMode(!showLevelDeleteMode)}
-                      className="px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition"
-                      title="Delete levels"
-                    >
-                      -
-                    </button>
-                  </div>
-                  {showLevelDeleteMode && (
-                    <div className="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                      <p className="text-xs text-gray-500 mb-2">Click - to remove a level:</p>
-                      <div className="space-y-1">
-                        {levels.map(level => (
-                          <div key={level.id} className="flex items-center justify-between gap-2 bg-white px-2 py-1 rounded">
-                            <span className="text-sm text-gray-700">{level.name}</span>
-                            <button
-                              onClick={() => handleDeleteLevel(level)}
-                              className="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded transition"
-                            >
-                              -
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                <div className="flex gap-2">
+                  <select
+                    value={feeForm.level}
+                    onChange={e => setFeeForm(p => ({ ...p, level: e.target.value }))}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select level</option>
+                    {levels.map(lvl => (
+                      <option key={lvl.id} value={lvl.name}>{lvl.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => setShowNewLevelInput(true)}
+                    className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition"
+                    title="Create new level"
+                  >
+                    +
+                  </button>
+                  <button
+                    onClick={() => setShowLevelManager(true)}
+                    className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
+                    title="Manage levels"
+                  >
+                    ⚙
+                  </button>
                 </div>
               )}
 
@@ -1135,51 +1095,31 @@ const AdminDashboard = () => {
                   </button>
                 </div>
               ) : (
-                <div className="flex gap-2 flex-col">
-                  <div className="flex gap-2">
-                    <select
-                      value={feeForm.academic_session}
-                      onChange={e => setFeeForm(p => ({ ...p, academic_session: e.target.value }))}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">Select academic session</option>
-                      {academicSessions.map(session => (
-                        <option key={session.id} value={session.name}>{session.name}</option>
-                      ))}
-                    </select>
-                    <button
-                      onClick={() => setShowNewSessionInput(true)}
-                      className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition"
-                      title="Create new academic session"
-                    >
-                      +
-                    </button>
-                    <button
-                      onClick={() => setShowSessionDeleteMode(!showSessionDeleteMode)}
-                      className="px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition"
-                      title="Delete academic sessions"
-                    >
-                      -
-                    </button>
-                  </div>
-                  {showSessionDeleteMode && (
-                    <div className="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                      <p className="text-xs text-gray-500 mb-2">Click - to remove an academic session:</p>
-                      <div className="space-y-1">
-                        {academicSessions.map(session => (
-                          <div key={session.id} className="flex items-center justify-between gap-2 bg-white px-2 py-1 rounded">
-                            <span className="text-sm text-gray-700">{session.name}</span>
-                            <button
-                              onClick={() => handleDeleteSession(session)}
-                              className="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded transition"
-                            >
-                              -
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                <div className="flex gap-2">
+                  <select
+                    value={feeForm.academic_session}
+                    onChange={e => setFeeForm(p => ({ ...p, academic_session: e.target.value }))}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select academic session</option>
+                    {academicSessions.map(session => (
+                      <option key={session.id} value={session.name}>{session.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => setShowNewSessionInput(true)}
+                    className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition"
+                    title="Create new academic session"
+                  >
+                    +
+                  </button>
+                  <button
+                    onClick={() => setShowSessionManager(true)}
+                    className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
+                    title="Manage academic sessions"
+                  >
+                    ⚙
+                  </button>
                 </div>
               )}
             </div>
@@ -1270,6 +1210,96 @@ const AdminDashboard = () => {
           >
             Run Reconciliation
           </button>
+        </div>
+      )}
+
+      {/* Department Manager Modal */}
+      {showDeptManager && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Manage Departments</h3>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {departments.length > 0 ? departments.map(dept => (
+                <div key={dept.id} className="flex items-center justify-between gap-3 bg-gray-50 px-3 py-2 rounded-lg">
+                  <span className="text-sm text-gray-700">{dept.name}</span>
+                  <button
+                    onClick={() => handleDeleteDepartment(dept)}
+                    className="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded transition"
+                  >
+                    Remove
+                  </button>
+                </div>
+              )) : (
+                <p className="text-sm text-gray-500">No departments saved yet.</p>
+              )}
+            </div>
+            <button
+              onClick={() => setShowDeptManager(false)}
+              className="mt-4 w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Level Manager Modal */}
+      {showLevelManager && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Manage Levels</h3>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {levels.length > 0 ? levels.map(level => (
+                <div key={level.id} className="flex items-center justify-between gap-3 bg-gray-50 px-3 py-2 rounded-lg">
+                  <span className="text-sm text-gray-700">{level.name}</span>
+                  <button
+                    onClick={() => handleDeleteLevel(level)}
+                    className="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded transition"
+                  >
+                    Remove
+                  </button>
+                </div>
+              )) : (
+                <p className="text-sm text-gray-500">No levels saved yet.</p>
+              )}
+            </div>
+            <button
+              onClick={() => setShowLevelManager(false)}
+              className="mt-4 w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Academic Session Manager Modal */}
+      {showSessionManager && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Manage Academic Sessions</h3>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {academicSessions.length > 0 ? academicSessions.map(session => (
+                <div key={session.id} className="flex items-center justify-between gap-3 bg-gray-50 px-3 py-2 rounded-lg">
+                  <span className="text-sm text-gray-700">{session.name}</span>
+                  <button
+                    onClick={() => handleDeleteSession(session)}
+                    className="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded transition"
+                  >
+                    Remove
+                  </button>
+                </div>
+              )) : (
+                <p className="text-sm text-gray-500">No academic sessions saved yet.</p>
+              )}
+            </div>
+            <button
+              onClick={() => setShowSessionManager(false)}
+              className="mt-4 w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
+            >
+              Close
+            </button>
+          </div>
         </div>
       )}
     </div>
