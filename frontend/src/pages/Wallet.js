@@ -1,11 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from 'react-query';
+import { useSearchParams } from 'react-router-dom';
 import { apiFetch } from '../api/config';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 const Wallet = () => {
+  const [searchParams] = useSearchParams();
   const [amount, setAmount] = useState('');
   const [amountDisplay, setAmountDisplay] = useState('');
+
+  useEffect(() => {
+    const amountParam = searchParams.get('amount');
+    if (amountParam) {
+      setAmount(amountParam);
+      setAmountDisplay(Number(amountParam).toLocaleString('en-US'));
+    }
+  }, [searchParams]);
 
   const formatNumberWithCommas = (value) => {
     const numericValue = value.replace(/,/g, '').replace(/\D/g, '');

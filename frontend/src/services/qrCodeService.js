@@ -3,11 +3,8 @@ import QRCode from 'qrcode';
 const qrCodeService = {
   generateWalletQR: async (matricNumber, amount = 0) => {
     try {
-      const qrData = JSON.stringify({
-        type: 'wallet_payment',
-        matric_number: matricNumber,
-        amount: amount
-      });
+      const frontendUrl = process.env.REACT_APP_API_URL || window.location.origin;
+      const qrData = `${frontendUrl}/wallet/payment?matric_number=${encodeURIComponent(matricNumber)}&amount=${amount}`;
       const dataUrl = await QRCode.toDataURL(qrData, {
         width: 300,
         margin: 2,
