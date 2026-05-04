@@ -16,13 +16,13 @@ const ForgotPassword = () => {
     setSuccess(false);
 
     try {
-      const response = await apiFetch('/auth/forgot-password', {
+      const data = await apiFetch('/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
       });
-
-      const data = await response.json();
+      
+      console.log('[Forgot Password] Response:', data);
       
       if (data.success) {
         setSuccess(true);
@@ -30,6 +30,7 @@ const ForgotPassword = () => {
         setError(data.error || 'Failed to send reset email');
       }
     } catch (err) {
+      console.error('[Forgot Password] Error:', err);
       setError(err.message || 'Failed to send reset email');
     } finally {
       setLoading(false);
