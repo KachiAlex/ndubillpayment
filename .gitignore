@@ -44,6 +44,12 @@ bower_components
 # Compiled binary addons (http://nodejs.org/api/addons.html)
 build/Release
 
+# Generated frontend build output
+frontend/build/
+
+# Editor settings
+.vscode/
+
 # Dependency directories
 node_modules/
 
