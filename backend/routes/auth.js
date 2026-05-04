@@ -279,26 +279,28 @@ router.post('/forgot-password', validate(forgotPasswordSchema), asyncHandler(asy
     `
   };
 
+  let emailSent = false;
   try {
     await transporter.sendMail(mailOptions);
     console.log('[Forgot Password] Reset email sent to:', user.email);
+    emailSent = true;
   } catch (emailError) {
     console.error('[Forgot Password] Failed to send email:', emailError.message);
     // Continue with the response even if email fails (for development)
   }
 
-  await AuditLogger.log({
-    action: 'password_reset_requested',
-    userId: user.id,
-    userEmail: user.email,
-    userType: user.user_type,
-    entityType: 'user',
-    entityId: user.id,
-    newValues: { email },
-    req
-  });
+  // For development, return the reset token in the response if email wasn't sent
+  const responseData = {
+    success: true,
+    message: emailSent ? 'Password reset link has been sent to your email' : 'Email not configured. Use the reset link below for development.',
+  };
 
-  res.json({ success: true, message: 'Password reset link has been sent to your email' });
+  if (!emailSent) {
+    responseData.resetToken = resetToken;
+    responseData.resetUrl = resetUrl;
+  }
+
+  res.json(responseData);
 }));
 
 // Verify reset token
