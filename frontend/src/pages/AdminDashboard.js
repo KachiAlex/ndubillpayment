@@ -135,7 +135,7 @@ const AdminDashboard = () => {
     } catch (error) {
       toast.error('Failed to add department');
     }
-  }, [feeForm.department]);
+  }, [feeForm.department, refreshFeeMetadata]);
 
   const handleSaveNewLevel = useCallback(async () => {
     if (!feeForm.level) {
@@ -167,7 +167,7 @@ const AdminDashboard = () => {
     } catch (error) {
       toast.error('Failed to add level');
     }
-  }, [feeForm.level]);
+  }, [feeForm.level, refreshFeeMetadata]);
 
   const handleSaveNewSession = useCallback(async () => {
     if (!feeForm.academic_session) {
@@ -199,7 +199,7 @@ const AdminDashboard = () => {
     } catch (error) {
       toast.error('Failed to add academic session');
     }
-  }, [feeForm.academic_session]);
+  }, [feeForm.academic_session, refreshFeeMetadata]);
 
   const handleDeleteDepartment = async (department) => {
     try {
