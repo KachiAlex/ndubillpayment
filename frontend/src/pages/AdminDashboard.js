@@ -27,6 +27,19 @@ const AdminDashboard = () => {
   const [feesData, setFeesData] = useState([]);
   const [feesLoading, setFeesLoading] = useState(false);
   const [feeForm, setFeeForm] = useState({ name: '', amount: '', department: '', level: '', academic_session: '' });
+  const [amountDisplay, setAmountDisplay] = useState('');
+
+  const formatNumberWithCommas = (value) => {
+    const numericValue = value.replace(/,/g, '').replace(/\D/g, '');
+    if (!numericValue) return '';
+    return Number(numericValue).toLocaleString('en-US');
+  };
+
+  const handleAmountChange = (e) => {
+    const formatted = formatNumberWithCommas(e.target.value);
+    setAmountDisplay(formatted);
+    setFeeForm(p => ({ ...p, amount: formatted.replace(/,/g, '') }));
+  };
   const [editingFeeId, setEditingFeeId] = useState(null);
   const [showNewDeptInput, setShowNewDeptInput] = useState(false);
   const [showNewLevelInput, setShowNewLevelInput] = useState(false);
@@ -1074,7 +1087,13 @@ const AdminDashboard = () => {
             <h3 className="text-lg font-semibold text-gray-900 mb-4">{editingFeeId ? 'Edit Fee' : 'Create Fee'}</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
               <input placeholder="Fee name" value={feeForm.name} onChange={e => setFeeForm(p => ({ ...p, name: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
-              <input placeholder="Amount (₦)" type="number" value={feeForm.amount} onChange={e => setFeeForm(p => ({ ...p, amount: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+              <input 
+                placeholder="Amount (₦)" 
+                type="text" 
+                value={amountDisplay} 
+                onChange={handleAmountChange} 
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
               
               {/* Department field with dropdown and manage options */}
               {showNewDeptInput ? (
@@ -1241,6 +1260,7 @@ const AdminDashboard = () => {
                     toast.success('Fee created');
                   }
                   setFeeForm({ name: '', amount: '', department: '', level: '', academic_session: '' });
+                  setAmountDisplay('');
                   setEditingFeeId(null);
                   setShowNewDeptInput(false);
                   setShowNewLevelInput(false);
@@ -1274,7 +1294,7 @@ const AdminDashboard = () => {
                       <p className="text-xs text-gray-500">₦{Number(fee.amount).toLocaleString()} · {fee.academic_session} {fee.department ? `· ${fee.department}` : ''} {fee.level ? `· ${fee.level}` : ''}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button onClick={() => { setFeeForm({ name: fee.name, amount: fee.amount, department: fee.department || 'ALL', level: fee.level || '', academic_session: fee.academic_session }); setEditingFeeId(fee.id); }} className="text-xs px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition">Edit</button>
+                      <button onClick={() => { setFeeForm({ name: fee.name, amount: fee.amount, department: fee.department || 'ALL', level: fee.level || '', academic_session: fee.academic_session }); setAmountDisplay(fee.amount ? Number(fee.amount).toLocaleString('en-US') : ''); setEditingFeeId(fee.id); }} className="text-xs px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition">Edit</button>
                       <button onClick={async () => { if (window.confirm('Delete this fee?')) { try { await deleteFee(fee.id); const d = await getAllFees(); setFeesData(d.fees || []); toast.success('Fee deleted'); } catch (err) { toast.error('Failed to delete'); } } }} className="text-xs px-3 py-1.5 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition">Delete</button>
                     </div>
                   </div>

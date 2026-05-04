@@ -5,6 +5,19 @@ import LoadingSpinner from '../components/LoadingSpinner';
 
 const Wallet = () => {
   const [amount, setAmount] = useState('');
+  const [amountDisplay, setAmountDisplay] = useState('');
+
+  const formatNumberWithCommas = (value) => {
+    const numericValue = value.replace(/,/g, '').replace(/\D/g, '');
+    if (!numericValue) return '';
+    return Number(numericValue).toLocaleString('en-US');
+  };
+
+  const handleAmountChange = (e) => {
+    const formatted = formatNumberWithCommas(e.target.value);
+    setAmountDisplay(formatted);
+    setAmount(formatted.replace(/,/g, ''));
+  };
 
   const { data: wallet, isLoading } = useQuery(['wallet-balance'], async () => {
     const data = await apiFetch('/wallet/balance');
@@ -50,10 +63,10 @@ const Wallet = () => {
               Amount (₦)
             </label>
             <input
-              type="number"
+              type="text"
               id="amount"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              value={amountDisplay}
+              onChange={handleAmountChange}
               className="w-full px-4 py-3 text-base border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="Enter amount"
               min="1"

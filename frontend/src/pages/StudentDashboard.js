@@ -64,6 +64,19 @@ const StudentDashboard = () => {
   const [qrCodeDataURL, setQrCodeDataURL] = useState(null);
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
   const [paymentDialog, setPaymentDialog] = useState({ open: false, fee: null, amount: '' });
+  const [amountDisplay, setAmountDisplay] = useState('');
+
+  const formatNumberWithCommas = (value) => {
+    const numericValue = value.replace(/,/g, '').replace(/\D/g, '');
+    if (!numericValue) return '';
+    return Number(numericValue).toLocaleString('en-US');
+  };
+
+  const handlePaymentAmountChange = (e) => {
+    const formatted = formatNumberWithCommas(e.target.value);
+    setAmountDisplay(formatted);
+    setPaymentDialog(p => ({ ...p, amount: formatted.replace(/,/g, '') }));
+  };
   const [expandedFeeId, setExpandedFeeId] = useState(null);
 
   // Optimistic mutation for fee payments
@@ -231,17 +244,20 @@ const StudentDashboard = () => {
     try {
       await payFeeMutation.mutateAsync({ feeId, amount });
       setPaymentDialog({ open: false, fee: null, amount: '' });
+      setAmountDisplay('');
     } catch (error) {
       console.error('Payment error:', error);
     }
   };
 
   const openPaymentDialog = (fee) => {
+    const amount = fee.remaining_balance || fee.amount;
     setPaymentDialog({
       open: true,
       fee,
-      amount: fee.remaining_balance || fee.amount
+      amount
     });
+    setAmountDisplay(amount ? Number(amount).toLocaleString('en-US') : '');
   };
 
   const toggleFeeHistory = async (feeId) => {
@@ -630,11 +646,11 @@ const StudentDashboard = () => {
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">Amount to Pay (₦)</label>
               <input
-                type="number"
+                type="text"
                 min="1"
                 max={paymentDialog.fee.remaining_balance}
-                value={paymentDialog.amount}
-                onChange={(e) => setPaymentDialog({ ...paymentDialog, amount: e.target.value })}
+                value={amountDisplay}
+                onChange={handlePaymentAmountChange}
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
               <p className="text-xs text-gray-500 mt-1">
@@ -643,7 +659,7 @@ const StudentDashboard = () => {
             </div>
             <div className="flex gap-3">
               <button
-                onClick={() => setPaymentDialog({ open: false, fee: null, amount: '' })}
+                onClick={() => { setPaymentDialog({ open: false, fee: null, amount: '' }); setAmountDisplay(''); }}
                 className="flex-1 px-3 py-2 sm:px-4 sm:py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
               >
                 Cancel
