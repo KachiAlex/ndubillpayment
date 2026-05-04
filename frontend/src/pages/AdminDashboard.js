@@ -100,13 +100,13 @@ const AdminDashboard = () => {
   const levels = levelsData?.levels || [];
   const academicSessions = sessionsData?.sessions || [];
 
-  const refreshFeeMetadata = async () => {
+  const refreshFeeMetadata = useCallback(async () => {
     await Promise.all([
       refetchDepartments(),
       refetchLevels(),
       refetchSessions()
     ]);
-  };
+  }, [refetchDepartments, refetchLevels, refetchSessions]);
 
   const handleSaveNewDepartment = useCallback(async () => {
     if (!feeForm.department.trim()) return;
