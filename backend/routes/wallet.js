@@ -19,4 +19,32 @@ router.get('/transactions', authenticateJWT, asyncHandler(async (req, res) => {
   res.json({ success: true, transactions });
 }));
 
+// Fund wallet
+router.post('/fund', authenticateJWT, asyncHandler(async (req, res) => {
+  const { amount, description } = req.body;
+  const numericAmount = Number(amount);
+
+  if (!numericAmount || numericAmount <= 0) {
+    throw createHttpError(400, 'Valid amount is required', 'INVALID_AMOUNT');
+  }
+
+  const tx_ref = `TXN-${Date.now()}-${req.user.id}`;
+
+  await database.db('transactions').insert({
+    user_id: req.user.id,
+    reference: tx_ref,
+    type: 'wallet_funding',
+    amount: numericAmount,
+    currency: 'NGN',
+    status: 'pending',
+    payment_method: 'custom_test_flow',
+    description: description || 'Wallet funding',
+    payment_gateway_response: {
+      source: 'authenticated_test_checkout'
+    }
+  });
+
+  res.json({ success: true, tx_ref, amount: numericAmount });
+}));
+
 module.exports = router;
