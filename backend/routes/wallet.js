@@ -33,7 +33,6 @@ router.post('/fund', authenticateJWT, asyncHandler(async (req, res) => {
   await database.db('transactions').insert({
     user_id: req.user.id,
     reference: tx_ref,
-    type: 'tuition',
     amount: numericAmount,
     currency: 'NGN',
     status: 'pending',
