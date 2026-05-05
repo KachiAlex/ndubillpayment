@@ -175,13 +175,8 @@ const WalletPayment = () => {
         redirect_url: callbackUrl,
         customer: {
           email: student.email,
-          firstName: student.first_name || '',
-          lastName: student.last_name || '',
-          first_name: student.first_name || '',
-          last_name: student.last_name || '',
+          id: `student_${String(student.id || student.matric_number || 'customer').replace(/[^a-zA-Z0-9_-]/g, '_')}`,
           name: `${student.first_name || ''} ${student.last_name || ''}`.trim(),
-          phonenumber: '',
-          phoneNumber: '',
           phone_number: ''
         },
         customizations: {

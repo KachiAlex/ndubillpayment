@@ -98,13 +98,8 @@ const Wallet = () => {
       redirect_url: callbackUrl,
       customer: {
         email: user?.email || '',
-        firstName: user?.first_name || '',
-        lastName: user?.last_name || '',
-        first_name: user?.first_name || '',
-        last_name: user?.last_name || '',
+        id: `wallet_${String(user?.id || user?.email || 'customer').replace(/[^a-zA-Z0-9_-]/g, '_')}`,
         name: `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Wallet Funding',
-        phonenumber: '',
-        phoneNumber: '',
         phone_number: ''
       },
       customizations: {
