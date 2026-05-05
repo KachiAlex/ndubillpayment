@@ -9,7 +9,7 @@ const { finalizeSuccessfulPayment } = require('../utils/paymentFinalizer');
 const router = express.Router();
 
 const buildPaymentResponse = (payment) => ({
-  tx_ref: payment.reference,
+  tx_ref: payment.tx_ref || payment.reference,
   amount: Number(payment.amount) || 0,
   currency: payment.currency || 'NGN',
   status: payment.status,
@@ -48,7 +48,7 @@ const createTransaction = async ({
 }) => {
   await database.db('transactions').insert({
     user_id: userId,
-    reference: txRef,
+    tx_ref: txRef,
     type: 'wallet_funding',
     amount,
     currency: 'NGN',
@@ -58,7 +58,7 @@ const createTransaction = async ({
     metadata: JSON.stringify(metadata || {})
   });
 
-  return database.db('transactions').where({ reference: txRef }).first();
+  return database.db('transactions').where({ tx_ref: txRef }).first();
 };
 
 // Public student lookup for payment checkout flows
@@ -133,8 +133,8 @@ router.get('/transactions/:txRef', asyncHandler(async (req, res) => {
   }
 
   const transaction = await database.db('transactions')
-    .where({ reference: txRef })
-    .select('reference as tx_ref', 'type', 'amount', 'currency', 'status', 'payment_method', 'description', 'metadata', 'created_at', 'updated_at')
+    .where({ tx_ref: txRef })
+    .select('tx_ref', 'type', 'amount', 'currency', 'status', 'payment_method', 'description', 'metadata', 'created_at', 'updated_at')
     .first();
 
   if (!transaction) {
@@ -162,7 +162,7 @@ router.post('/transactions/:txRef/complete', asyncHandler(async (req, res) => {
 
   const trx = await database.db.transaction();
   try {
-    const payment = await trx('transactions').where({ reference: txRef }).forUpdate().first();
+    const payment = await trx('transactions').where({ tx_ref: txRef }).forUpdate().first();
 
     if (!payment) {
       await trx.rollback();

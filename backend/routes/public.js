@@ -145,7 +145,7 @@ router.post('/transactions/:txRef/complete', asyncHandler(async (req, res) => {
 
   const trx = await database.db.transaction();
   try {
-    const payment = await trx('transactions').where({ reference: txRef }).forUpdate().first();
+    const payment = await trx('transactions').where({ tx_ref: txRef }).forUpdate().first();
 
     if (!payment) {
       await trx.rollback();
