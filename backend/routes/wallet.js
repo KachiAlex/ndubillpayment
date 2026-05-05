@@ -28,16 +28,16 @@ router.post('/pay', authenticateJWT, asyncHandler(async (req, res) => {
 
   await database.db('transactions').insert({
     user_id: req.user.id,
-    reference: tx_ref,
+    tx_ref,
     type: 'wallet_funding',
     amount,
     currency: 'NGN',
     status: 'pending',
     payment_method: 'custom_test_flow',
     description: description || 'Wallet funding',
-    payment_gateway_response: {
+    metadata: JSON.stringify({
       source: 'authenticated_test_checkout'
-    }
+    })
   });
 
   res.json({ success: true, tx_ref, amount });

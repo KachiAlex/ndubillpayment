@@ -83,13 +83,18 @@ router.post('/payment-intents', asyncHandler(async (req, res) => {
 
   await database.db('transactions').insert({
     user_id: student.id,
-    reference: txRef,
+    tx_ref: txRef,
     type: 'wallet_funding',
     amount: numericAmount,
     currency: 'NGN',
     status: 'pending',
     payment_method: 'custom_test_flow',
-    description: `Test checkout for ${student.first_name} ${student.last_name}`
+    description: `Test checkout for ${student.first_name} ${student.last_name}`,
+    metadata: JSON.stringify({
+      flow: 'public_qr',
+      source: 'public_payment_intent',
+      matric_number: student.matric_number
+    })
   });
 
   res.json({
@@ -120,8 +125,8 @@ router.get('/transactions/:txRef', asyncHandler(async (req, res) => {
   }
 
   const transaction = await database.db('transactions')
-    .where({ reference: txRef })
-    .select('reference as tx_ref', 'type', 'amount', 'currency', 'status', 'payment_method', 'description', 'created_at', 'updated_at')
+    .where({ tx_ref: txRef })
+    .select('tx_ref', 'type', 'amount', 'currency', 'status', 'payment_method', 'description', 'metadata', 'created_at', 'updated_at')
     .first();
 
   if (!transaction) {
