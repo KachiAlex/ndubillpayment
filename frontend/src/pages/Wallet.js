@@ -98,8 +98,14 @@ const Wallet = () => {
       redirect_url: callbackUrl,
       customer: {
         email: user?.email || '',
+        firstName: user?.first_name || '',
+        lastName: user?.last_name || '',
+        first_name: user?.first_name || '',
+        last_name: user?.last_name || '',
         name: `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Wallet Funding',
-        phonenumber: ''
+        phonenumber: '',
+        phoneNumber: '',
+        phone_number: ''
       },
       customizations: {
         title: 'NDU Wallet Funding',

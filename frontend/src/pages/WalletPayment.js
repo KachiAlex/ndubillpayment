@@ -175,8 +175,14 @@ const WalletPayment = () => {
         redirect_url: callbackUrl,
         customer: {
           email: student.email,
+          firstName: student.first_name || '',
+          lastName: student.last_name || '',
+          first_name: student.first_name || '',
+          last_name: student.last_name || '',
           name: `${student.first_name || ''} ${student.last_name || ''}`.trim(),
-          phonenumber: ''
+          phonenumber: '',
+          phoneNumber: '',
+          phone_number: ''
         },
         customizations: {
           title: 'NDU Tuition Payment',

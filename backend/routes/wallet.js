@@ -28,14 +28,14 @@ router.post('/pay', authenticateJWT, asyncHandler(async (req, res) => {
 
   await database.db('transactions').insert({
     user_id: req.user.id,
-    tx_ref,
+    reference: tx_ref,
     type: 'wallet_funding',
     amount,
     currency: 'NGN',
     status: 'pending',
     payment_method: 'flutterwave',
     description: description || 'Wallet funding',
-    metadata: {
+    payment_gateway_response: {
       source: 'authenticated_wallet_topup'
     }
   });

@@ -82,17 +82,13 @@ router.post('/payment-intents', asyncHandler(async (req, res) => {
 
   await database.db('transactions').insert({
     user_id: student.id,
-    tx_ref: txRef,
+    reference: txRef,
     type: 'wallet_funding',
     amount: numericAmount,
     currency: 'NGN',
     status: 'pending',
     payment_method: 'flutterwave',
-    description: `Wallet funding for ${student.first_name} ${student.last_name}`,
-    metadata: {
-      matric_number: student.matric_number,
-      source: 'public_qr_payment'
-    }
+    description: `Wallet funding for ${student.first_name} ${student.last_name}`
   });
 
   res.json({
@@ -123,8 +119,8 @@ router.get('/transactions/:txRef', asyncHandler(async (req, res) => {
   }
 
   const transaction = await database.db('transactions')
-    .where({ tx_ref: txRef })
-    .select('tx_ref', 'type', 'amount', 'currency', 'status', 'payment_method', 'description', 'created_at', 'updated_at')
+    .where({ reference: txRef })
+    .select('reference as tx_ref', 'type', 'amount', 'currency', 'status', 'payment_method', 'description', 'created_at', 'updated_at')
     .first();
 
   if (!transaction) {

@@ -31,7 +31,7 @@ router.post('/flutterwave', express.raw({ type: 'application/json' }), asyncHand
 
   const trx = await database.db.transaction();
   try {
-    const payment = await trx('transactions').where({ tx_ref }).first();
+    const payment = await trx('transactions').where({ reference: tx_ref }).first();
 
     if (!payment) {
       console.warn('[Webhook] Transaction not found for tx_ref:', tx_ref);
