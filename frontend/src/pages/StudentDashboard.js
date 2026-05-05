@@ -4,7 +4,6 @@ import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { apiFetch } from '../api/config';
 import { getApplicableFees, payFee, getFeeHistory } from '../api/fees';
 import notificationService from '../services/notificationService';
-import qrCodeService from '../services/qrCodeService';
 import biometricService from '../services/biometricService';
 import NotificationSettings from '../components/NotificationSettings';
 import LoadingSpinner from '../components/LoadingSpinner';
