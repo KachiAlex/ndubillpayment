@@ -34,10 +34,14 @@ const finalizeSuccessfulPayment = async (trx, payment, transactionId) => {
 
   const paymentAmount = Number(lockedPayment.amount) || 0;
   const paymentMetadata = normalizePaymentMetadata(lockedPayment.metadata);
+  const completedMetadata = {
+    ...paymentMetadata,
+    provider_reference: String(transactionId || '')
+  };
 
   await trx('transactions').where({ id: lockedPayment.id }).update({
     status: 'completed',
-    flutterwave_ref: String(transactionId || ''),
+    metadata: JSON.stringify(completedMetadata),
     updated_at: new Date()
   });
 

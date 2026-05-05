@@ -3,28 +3,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { apiFetch } from '../api/config';
 
-const loadFlutterwaveScript = () => {
-  if (window.FlutterwaveCheckout) {
-    return Promise.resolve();
-  }
-
-  return new Promise((resolve, reject) => {
-    const existingScript = document.querySelector('script[src="https://checkout.flutterwave.com/v3.js"]');
-    if (existingScript) {
-      existingScript.addEventListener('load', resolve, { once: true });
-      existingScript.addEventListener('error', reject, { once: true });
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = 'https://checkout.flutterwave.com/v3.js';
-    script.async = true;
-    script.onload = resolve;
-    script.onerror = () => reject(new Error('Unable to load Flutterwave checkout')); 
-    document.body.appendChild(script);
-  });
-};
-
 const WalletPayment = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -37,11 +15,25 @@ const WalletPayment = () => {
   const [paymentRef, setPaymentRef] = useState('');
   const autoStartAttempted = useRef(false);
 
+  const mode = useMemo(() => searchParams.get('mode') || 'public', [searchParams]);
   const matricNumber = useMemo(() => searchParams.get('matric_number'), [searchParams]);
   const amountParam = useMemo(() => searchParams.get('amount'), [searchParams]);
-  const flutterwavePublicKey = process.env.REACT_APP_FLUTTERWAVE_PUBLIC_KEY;
+  const txRefParam = useMemo(() => searchParams.get('tx_ref'), [searchParams]);
 
   useEffect(() => {
+    if (mode === 'wallet') {
+      if (!txRefParam) {
+        setError('Invalid payment reference. Please start the wallet top-up again.');
+      } else {
+        setPaymentRef(txRefParam);
+        if (amountParam) {
+          setAmount(String(amountParam));
+        }
+      }
+      setLoading(false);
+      return;
+    }
+
     const fetchStudent = async () => {
       if (!matricNumber) {
         setError('Invalid QR code: Missing matric number');
@@ -50,7 +42,7 @@ const WalletPayment = () => {
       }
 
       try {
-        const data = await apiFetch(`/public/student/${encodeURIComponent(matricNumber)}`);
+        const data = await apiFetch(`/payments/students/${encodeURIComponent(matricNumber)}`);
         setStudent(data.student);
         if (amountParam) {
           setAmount(String(amountParam));
@@ -63,7 +55,7 @@ const WalletPayment = () => {
     };
 
     fetchStudent();
-  }, [matricNumber, amountParam]);
+  }, [amountParam, matricNumber, mode, txRefParam]);
 
   const handleAmountChange = (e) => {
     const numericValue = e.target.value.replace(/,/g, '').replace(/\D/g, '');
@@ -78,8 +70,9 @@ const WalletPayment = () => {
 
   const handleProceedToPayment = useCallback(async () => {
     const numericAmount = Number(amount);
+    let txRef = txRefParam || '';
 
-    if (!student) {
+    if (mode !== 'wallet' && !student) {
       setError('Student information could not be loaded');
       return;
     }
@@ -89,101 +82,59 @@ const WalletPayment = () => {
       return;
     }
 
-    if (!flutterwavePublicKey) {
-      setError('Payment gateway is not configured. Please contact support.');
-      return;
-    }
-
-    if (!student.email) {
-      setError('Student email is required to continue with payment');
-      return;
-    }
-
     setError('');
     setInitiatingPayment(true);
 
     try {
-      const intent = await apiFetch('/public/payment-intents', {
+      if (mode !== 'wallet' && !txRef) {
+        const intent = await apiFetch('/payments/checkout/public', {
+          method: 'POST',
+          body: JSON.stringify({
+            matric_number: student.matric_number,
+            amount: numericAmount
+          })
+        });
+
+        txRef = intent?.payment?.tx_ref || intent?.tx_ref || intent?.transaction?.reference || '';
+      }
+
+      if (!txRef) {
+        throw new Error('Payment reference could not be created');
+      }
+
+      const completion = await apiFetch(`/payments/transactions/${encodeURIComponent(txRef)}/complete`, {
         method: 'POST',
         body: JSON.stringify({
-          matric_number: student.matric_number,
-          amount: numericAmount
+          amount: numericAmount,
+          mode,
+          matric_number: student?.matric_number || null
         })
       });
 
-      await loadFlutterwaveScript();
-
-      if (typeof window.FlutterwaveCheckout !== 'function') {
-        throw new Error('Flutterwave checkout could not be loaded');
+      if (!completion?.success) {
+        throw new Error('Unable to complete the test payment');
       }
 
-      const txRef = intent?.payment?.tx_ref || `QR-${Date.now()}-${String(student.matric_number || matricNumber).replace(/[^a-zA-Z0-9]/g, '').slice(-8)}`;
-      const callbackUrl = `${window.location.origin}/payment/callback?tx_ref=${encodeURIComponent(txRef)}&matric_number=${encodeURIComponent(student.matric_number)}&amount=${encodeURIComponent(String(numericAmount))}`;
-
-      const redirectToCallback = (response) => {
-        const redirectTarget = new URL(callbackUrl);
-        if (response?.status) {
-          redirectTarget.searchParams.set('status', response.status);
-        }
-        if (response?.transaction_id) {
-          redirectTarget.searchParams.set('transaction_id', response.transaction_id);
-        }
-        if (response?.flw_ref) {
-          redirectTarget.searchParams.set('flw_ref', response.flw_ref);
-        }
-
-        window.location.assign(redirectTarget.toString());
-      };
-
-      window.FlutterwaveCheckout({
-        public_key: flutterwavePublicKey,
-        tx_ref: txRef,
-        amount: numericAmount,
-        currency: 'NGN',
-        payment_options: 'card,banktransfer,ussd',
-        redirect_url: callbackUrl,
-        customer: {
-          email: student.email,
-          name: `${student.first_name || ''} ${student.last_name || ''}`.trim(),
-          phone_number: ''
-        },
-        customizations: {
-          title: 'NDU Tuition Payment',
-          description: `Payment for ${student.first_name || ''} ${student.last_name || ''} (${student.matric_number})`
-        },
-        meta: {
-          matric_number: student.matric_number,
-          payment_source: 'qr_code'
-        },
-        callback: function (response) {
-          console.log('[Public Payment] Flutterwave response:', response);
-          if (response?.status === 'successful' || response?.status === 'completed') {
-            setPaymentRef(response.tx_ref || txRef);
-            setPaymentSuccess(true);
-            redirectToCallback(response);
-          } else {
-            setError('Payment was not completed');
-          }
-          setInitiatingPayment(false);
-        },
-        onclose: function () {
-          window.location.assign(callbackUrl);
-          setInitiatingPayment(false);
-        }
-      });
+      setPaymentRef(txRef);
+      setPaymentSuccess(true);
+      navigate(`/payment/callback?tx_ref=${encodeURIComponent(txRef)}&amount=${encodeURIComponent(String(numericAmount))}&status=successful`, { replace: true });
     } catch (err) {
-      console.error('[Public Payment] Failed to start checkout:', err);
-      setError(err.message || 'Failed to open payment gateway');
+      console.error('[Public Payment] Failed to complete test checkout:', err);
+      setError(err.message || 'Failed to complete test payment');
       setInitiatingPayment(false);
     }
-  }, [amount, flutterwavePublicKey, matricNumber, student]);
+  }, [amount, mode, navigate, student, txRefParam]);
 
   useEffect(() => {
-    if (!loading && student && amountParam && !autoStartAttempted.current && !error) {
+    const shouldAutoStart = mode === 'wallet'
+      ? !loading && txRefParam && amountParam && !autoStartAttempted.current && !error
+      : !loading && student && amountParam && !autoStartAttempted.current && !error;
+
+    if (shouldAutoStart) {
       autoStartAttempted.current = true;
       handleProceedToPayment();
     }
-  }, [loading, student, amountParam, error, handleProceedToPayment]);
+  }, [amountParam, error, handleProceedToPayment, loading, mode, student, txRefParam]);
 
   if (loading) {
     return (
@@ -209,7 +160,7 @@ const WalletPayment = () => {
               </svg>
             </div>
             <h1 className="text-3xl font-bold text-gray-900">Payment Checkout</h1>
-            <p className="text-gray-600 mt-2">Public QR payment page for tuition or wallet funding</p>
+            <p className="text-gray-600 mt-2">Custom test-only payment page for tuition or wallet funding</p>
           </div>
 
           {error && (
@@ -226,9 +177,7 @@ const WalletPayment = () => {
                 </svg>
               </div>
               <h2 className="text-2xl font-bold text-gray-800">Payment Completed</h2>
-              <p className="text-gray-600">
-                The payment gateway reported a successful transaction.
-              </p>
+              <p className="text-gray-600">The test checkout completed successfully and the wallet has been updated.</p>
               {paymentRef && (
                 <p className="text-sm text-gray-500">Reference: {paymentRef}</p>
               )}
@@ -241,6 +190,13 @@ const WalletPayment = () => {
             </div>
           ) : (
             <div className="space-y-6">
+              {mode === 'wallet' ? (
+                <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 text-sm text-blue-900">
+                  <p className="font-semibold">Wallet top-up test flow</p>
+                  <p className="mt-1">This internal checkout simulates a successful payment and credits your wallet immediately.</p>
+                </div>
+              ) : null}
+
               {student && (
                 <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
                   <h2 className="text-lg font-semibold text-gray-900 mb-3">Student Details</h2>
@@ -274,8 +230,9 @@ const WalletPayment = () => {
                   type="text"
                   value={formattedAmount}
                   onChange={handleAmountChange}
+                  readOnly={mode === 'wallet'}
                   placeholder="Enter amount to pay"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors"
+                  className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors ${mode === 'wallet' ? 'bg-gray-50 text-gray-700 cursor-not-allowed' : ''}`}
                 />
               </div>
 
@@ -284,11 +241,11 @@ const WalletPayment = () => {
                 disabled={initiatingPayment}
                 className="w-full py-3 px-4 rounded-lg font-semibold text-white bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {initiatingPayment ? 'Opening Payment Gateway…' : 'Proceed to Payment Gateway'}
+                {initiatingPayment ? 'Completing Test Payment…' : 'Complete Test Payment'}
               </button>
 
               <p className="text-xs text-gray-500 text-center">
-                This public payment page uses Flutterwave. After successful payment, the transaction will be confirmed through the payment gateway.
+                This is a local test checkout. No external payment gateway is used.
               </p>
             </div>
           )}

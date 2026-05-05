@@ -192,9 +192,7 @@ const StudentDashboard = () => {
   const handleFund = (e) => {
     e.preventDefault();
     
-    // Open Flutterwave payment link in new tab
-    const flutterwaveUrl = 'https://sandbox.flutterwave.com/pay/oajfvrwbl7mj';
-    window.open(flutterwaveUrl, '_blank');
+    window.location.assign('/wallet');
   };
 
   const handleDownloadQR = () => {
@@ -289,7 +287,7 @@ const StudentDashboard = () => {
             <div>
               <p className="text-cyan-100 text-xs uppercase tracking-widest">Niger Delta University</p>
               <h1 className="mt-2 text-2xl sm:text-3xl font-bold text-white">Student Dashboard</h1>
-              <p className="mt-2 text-cyan-50/90">Manage your tuition wallet, fund via Flutterwave, and download receipts.</p>
+              <p className="mt-2 text-cyan-50/90">Manage your tuition wallet, fund with the built-in test checkout, and download receipts.</p>
             </div>
             <div className="flex items-center gap-3">
               <button onClick={handleFund} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-blue-700 font-semibold shadow-md hover:shadow-lg transition">

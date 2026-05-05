@@ -88,8 +88,8 @@ router.post('/payment-intents', asyncHandler(async (req, res) => {
     amount: numericAmount,
     currency: 'NGN',
     status: 'pending',
-    payment_method: 'flutterwave',
-    description: `Wallet funding for ${student.first_name} ${student.last_name}`
+    payment_method: 'custom_test_flow',
+    description: `Test checkout for ${student.first_name} ${student.last_name}`
   });
 
   res.json({
@@ -135,56 +135,12 @@ router.get('/transactions/:txRef', asyncHandler(async (req, res) => {
   res.json({ success: true, transaction });
 }));
 
-// Confirm a payment against Flutterwave as a fallback when webhook delivery is delayed
-router.post('/transactions/:txRef/confirm', asyncHandler(async (req, res) => {
+// Complete a test payment and credit the wallet using the internal custom flow
+router.post('/transactions/:txRef/complete', asyncHandler(async (req, res) => {
   const txRef = typeof req.params.txRef === 'string' ? req.params.txRef.trim() : '';
-  const transactionIdValue = req.body?.transaction_id ?? req.body?.transactionId ?? req.body?.flutterwave_transaction_id;
-  const transactionId = typeof transactionIdValue === 'string' || typeof transactionIdValue === 'number'
-    ? String(transactionIdValue).trim()
-    : '';
 
   if (!txRef) {
     throw createHttpError(400, 'Transaction reference is required', 'TX_REF_REQUIRED');
-  }
-
-  if (!transactionId) {
-    throw createHttpError(400, 'Transaction ID is required', 'TRANSACTION_ID_REQUIRED');
-  }
-
-  const secret = process.env.FLUTTERWAVE_SECRET_KEY;
-  if (!secret) {
-    throw createHttpError(500, 'Flutterwave secret key is not configured', 'FLUTTERWAVE_SECRET_NOT_CONFIGURED');
-  }
-
-  const verifyResponse = await fetch(`https://api.flutterwave.com/v3/transactions/${encodeURIComponent(transactionId)}/verify`, {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${secret}`,
-      Accept: 'application/json'
-    }
-  });
-
-  const verifyPayload = await verifyResponse.json().catch(() => null);
-  const verifiedTransaction = verifyPayload?.data || {};
-
-  if (!verifyResponse.ok || verifyPayload?.status !== 'success') {
-    throw createHttpError(502, 'Unable to verify payment with Flutterwave', 'FLUTTERWAVE_VERIFY_FAILED', {
-      status: verifyResponse.status,
-      response: verifyPayload
-    });
-  }
-
-  if (String(verifiedTransaction.tx_ref || '').trim() !== txRef) {
-    throw createHttpError(400, 'Transaction reference mismatch', 'TX_REF_MISMATCH', {
-      expected: txRef,
-      actual: verifiedTransaction.tx_ref || null
-    });
-  }
-
-  if (String(verifiedTransaction.status || '').toLowerCase() !== 'successful') {
-    throw createHttpError(400, 'Transaction is not successful', 'TRANSACTION_NOT_SUCCESSFUL', {
-      flutterwave_status: verifiedTransaction.status || null
-    });
   }
 
   const trx = await database.db.transaction();
@@ -204,37 +160,26 @@ router.post('/transactions/:txRef/confirm', asyncHandler(async (req, res) => {
       await trx.commit();
       return res.json({
         success: true,
-        verified: true,
+        completed: true,
         transaction: {
           tx_ref: txRef,
-          status: 'completed',
-          flutterwave_ref: transactionId
+          status: 'completed'
         }
       });
     }
 
-    const localAmount = Number(payment.amount) || 0;
-    const verifiedAmount = Number(verifiedTransaction.amount) || 0;
-
-    if (localAmount && verifiedAmount && localAmount !== verifiedAmount) {
-      throw createHttpError(400, 'Transaction amount mismatch', 'AMOUNT_MISMATCH', {
-        expected: localAmount,
-        actual: verifiedAmount
-      });
-    }
-
-    await finalizeSuccessfulPayment(trx, payment, transactionId);
+    const result = await finalizeSuccessfulPayment(trx, payment, txRef);
     await trx.commit();
 
     res.json({
       success: true,
-      verified: true,
+      completed: true,
       transaction: {
         tx_ref: txRef,
         status: 'completed',
-        flutterwave_ref: transactionId,
-        amount: localAmount
-      }
+        amount: Number(payment.amount) || 0
+      },
+      alreadyCompleted: result.alreadyCompleted || false
     });
   } catch (error) {
     await trx.rollback();

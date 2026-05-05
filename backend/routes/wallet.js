@@ -19,7 +19,7 @@ router.get('/transactions', authenticateJWT, asyncHandler(async (req, res) => {
   res.json({ success: true, transactions });
 }));
 
-// Initiate payment (Flutterwave)
+// Initiate payment (custom test checkout)
 router.post('/pay', authenticateJWT, asyncHandler(async (req, res) => {
   const { amount, description } = req.body;
   if (!amount || Number(amount) <= 0) throw createHttpError(400, 'Valid amount is required', 'INVALID_AMOUNT');
@@ -33,10 +33,10 @@ router.post('/pay', authenticateJWT, asyncHandler(async (req, res) => {
     amount,
     currency: 'NGN',
     status: 'pending',
-    payment_method: 'flutterwave',
+    payment_method: 'custom_test_flow',
     description: description || 'Wallet funding',
     payment_gateway_response: {
-      source: 'authenticated_wallet_topup'
+      source: 'authenticated_test_checkout'
     }
   });
 

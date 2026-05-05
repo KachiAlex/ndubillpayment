@@ -82,7 +82,7 @@ const Landing = () => {
                 Secure Tuition Payments, Simplified
               </h1>
               <p className="mt-4 text-lg text-blue-100 max-w-xl">
-                Pay fees via Flutterwave, track receipts, and view wallet balance in real-time.
+                Pay fees with the built-in test checkout, track receipts, and view wallet balance in real-time.
               </p>
               <div className="mt-8 flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <Link
@@ -111,7 +111,7 @@ const Landing = () => {
                 </div>
                 <div className="rounded-lg bg-white/5 ring-1 ring-white/10 p-3">
                   <p className="text-2xl font-bold text-white">NGN</p>
-                  <p className="text-blue-100 text-xs">Flutterwave</p>
+                  <p className="text-blue-100 text-xs">Test checkout</p>
                 </div>
                 <div className="rounded-lg bg-white/5 ring-1 ring-white/10 p-3">
                   <p className="text-2xl font-bold text-white">PDF</p>

@@ -3,7 +3,7 @@ exports.up = function (knex) {
     table.increments('id').primary();
     table.integer('user_id').unsigned().references('id').inTable('users').onDelete('CASCADE');
     table.string('tx_ref', 255).unique().notNullable();
-    table.string('flutterwave_ref', 255);
+    table.string('provider_reference', 255);
     table.enum('type', ['payment', 'refund', 'wallet_funding', 'tuition']).defaultTo('payment');
     table.decimal('amount', 12, 2).notNullable();
     table.string('currency', 10).defaultTo('NGN');

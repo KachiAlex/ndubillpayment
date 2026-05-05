@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { apiFetch } from '../api/config';
 
@@ -6,43 +6,35 @@ const PaymentCallback = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [status, setStatus] = useState('processing');
-  const pollRef = useRef(null);
 
   useEffect(() => {
     const txRef = searchParams.get('tx_ref');
-    const flutterwaveStatus = searchParams.get('status');
-    const transactionId = searchParams.get('transaction_id');
-
-    const clearPolling = () => {
-      if (pollRef.current) {
-        window.clearInterval(pollRef.current);
-        pollRef.current = null;
-      }
-    };
+    const callbackStatus = searchParams.get('status');
 
     const redirectToWallet = (delay = 2500) => {
       setTimeout(() => navigate(`/wallet?refresh=${Date.now()}`, { replace: true }), delay);
     };
 
     const confirmPaymentWithBackend = async () => {
-      if (!txRef || !transactionId) {
+      if (!txRef) {
         return false;
       }
 
       try {
-        const data = await apiFetch(`/public/transactions/${encodeURIComponent(txRef)}/confirm`, {
+        const data = await apiFetch(`/payments/transactions/${encodeURIComponent(txRef)}/complete`, {
           method: 'POST',
-          body: JSON.stringify({ transaction_id: transactionId })
+          body: JSON.stringify({
+            callback_status: callbackStatus || 'successful'
+          })
         });
 
-        if (data?.success && data?.transaction?.status === 'completed') {
-          clearPolling();
+        if (data?.success && (data?.transaction?.status === 'completed' || data?.completed)) {
           setStatus('success');
           redirectToWallet(1500);
           return true;
         }
       } catch (err) {
-        console.warn('[PaymentCallback] Backend confirmation failed:', err);
+        console.warn('[PaymentCallback] Backend completion failed:', err);
       }
 
       return false;
@@ -50,7 +42,7 @@ const PaymentCallback = () => {
 
     const finalizePayment = async () => {
       if (!txRef) {
-        if (flutterwaveStatus === 'successful') {
+        if (callbackStatus === 'successful') {
           setStatus('success');
           redirectToWallet();
         } else {
@@ -64,34 +56,16 @@ const PaymentCallback = () => {
         return;
       }
 
-      try {
-        const data = await apiFetch(`/public/transactions/${encodeURIComponent(txRef)}`);
-        if (data?.transaction?.status === 'completed') {
-          clearPolling();
-          setStatus('success');
-          redirectToWallet();
-          return;
-        }
-
-        if (flutterwaveStatus && flutterwaveStatus !== 'successful') {
-          clearPolling();
-          setStatus('failed');
-          redirectToWallet();
-        }
-      } catch (err) {
-        console.warn('[PaymentCallback] Status check failed:', err);
+      if (callbackStatus && callbackStatus !== 'successful') {
+        setStatus('failed');
+        redirectToWallet();
+        return;
       }
+
+      redirectToWallet();
     };
 
     finalizePayment();
-
-    if (txRef) {
-      pollRef.current = window.setInterval(finalizePayment, 2500);
-    }
-
-    return () => {
-      clearPolling();
-    };
   }, [navigate, searchParams]);
 
   return (
@@ -101,7 +75,7 @@ const PaymentCallback = () => {
           <div>
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
             <h2 className="mt-4 text-xl font-semibold text-gray-900">Processing Payment...</h2>
-            <p className="mt-2 text-gray-600">Please wait while we verify your payment and update your wallet.</p>
+            <p className="mt-2 text-gray-600">Please wait while we complete your test payment and update your wallet.</p>
           </div>
         )}
         
@@ -126,7 +100,7 @@ const PaymentCallback = () => {
               </svg>
             </div>
             <h2 className="mt-4 text-xl font-semibold text-gray-900">Payment Failed</h2>
-            <p className="mt-2 text-gray-600">There was an issue processing your payment.</p>
+            <p className="mt-2 text-gray-600">There was an issue completing your test payment.</p>
             <p className="mt-1 text-sm text-gray-500">Redirecting to wallet...</p>
           </div>
         )}

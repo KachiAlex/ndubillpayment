@@ -1,38 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useQuery } from 'react-query';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { apiFetch } from '../api/config';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { useAuth } from '../contexts/AuthContext';
-
-const loadFlutterwaveScript = () => {
-  if (window.FlutterwaveCheckout) {
-    return Promise.resolve();
-  }
-
-  return new Promise((resolve, reject) => {
-    const existingScript = document.querySelector('script[src="https://checkout.flutterwave.com/v3.js"]');
-    if (existingScript) {
-      existingScript.addEventListener('load', resolve, { once: true });
-      existingScript.addEventListener('error', reject, { once: true });
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = 'https://checkout.flutterwave.com/v3.js';
-    script.async = true;
-    script.onload = resolve;
-    script.onerror = () => reject(new Error('Unable to load Flutterwave checkout'));
-    document.body.appendChild(script);
-  });
-};
 
 const Wallet = () => {
   const [searchParams] = useSearchParams();
-  const { user } = useAuth();
+  const navigate = useNavigate();
   const [amount, setAmount] = useState('');
   const [amountDisplay, setAmountDisplay] = useState('');
-  const flutterwavePublicKey = process.env.REACT_APP_FLUTTERWAVE_PUBLIC_KEY;
   const refreshToken = searchParams.get('refresh');
 
   useEffect(() => {
@@ -69,68 +45,14 @@ const Wallet = () => {
       return;
     }
 
-    if (!flutterwavePublicKey) {
-      return;
-    }
-
-    const data = await apiFetch('/wallet/pay', {
+    const data = await apiFetch('/payments/checkout/wallet', {
       method: 'POST',
       body: JSON.stringify({ amount: numericAmount, description: 'Wallet funding' })
     });
 
-    await loadFlutterwaveScript();
-
-    if (typeof window.FlutterwaveCheckout !== 'function') {
-      throw new Error('Flutterwave checkout could not be loaded');
-    }
-
-    const txRef = data?.tx_ref || `TXN-${Date.now()}`;
-    const callbackUrl = `${window.location.origin}/payment/callback?tx_ref=${encodeURIComponent(txRef)}&amount=${encodeURIComponent(String(numericAmount))}`;
-
-    const redirectToCallback = (response) => {
-      const redirectTarget = new URL(callbackUrl);
-      if (response?.status) {
-        redirectTarget.searchParams.set('status', response.status);
-      }
-      if (response?.transaction_id) {
-        redirectTarget.searchParams.set('transaction_id', response.transaction_id);
-      }
-      if (response?.flw_ref) {
-        redirectTarget.searchParams.set('flw_ref', response.flw_ref);
-      }
-
-      window.location.assign(redirectTarget.toString());
-    };
-
-    window.FlutterwaveCheckout({
-      public_key: flutterwavePublicKey,
-      tx_ref: txRef,
-      amount: numericAmount,
-      currency: 'NGN',
-      payment_options: 'card,banktransfer,ussd',
-      redirect_url: callbackUrl,
-      customer: {
-        email: user?.email || '',
-        name: `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'Wallet Funding',
-        phone_number: ''
-      },
-      customizations: {
-        title: 'NDU Wallet Funding',
-        description: 'Add money to your student wallet'
-      },
-      meta: {
-        payment_source: 'wallet_topup'
-      },
-      callback: function (response) {
-        if (response?.status === 'successful' || response?.status === 'completed') {
-          redirectToCallback(response);
-        }
-      },
-      onclose: function () {
-        window.location.assign(callbackUrl);
-      }
-    });
-  }, [amount, flutterwavePublicKey, user?.email, user?.first_name, user?.last_name]);
+    const txRef = data?.payment?.tx_ref || data?.tx_ref || data?.transaction?.reference || `TXN-${Date.now()}`;
+    navigate(`/wallet/payment?tx_ref=${encodeURIComponent(txRef)}&amount=${encodeURIComponent(String(numericAmount))}&mode=wallet`, { replace: true });
+  }, [amount, navigate]);
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -176,7 +98,7 @@ const Wallet = () => {
             disabled={!amount || amount <= 0}
             className="w-full px-4 py-3 text-base bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition"
           >
-            Continue to Payment
+            Continue to Test Checkout
           </button>
         </div>
       </div>
@@ -185,7 +107,7 @@ const Wallet = () => {
         <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Important Information</h2>
         <ul className="space-y-2 text-sm text-gray-600 list-disc pl-5">
           <li>Minimum funding amount is ₦100</li>
-          <li>Payments are processed via Flutterwave</li>
+          <li>This is a test-only checkout that completes instantly inside the app</li>
           <li>Balance updates automatically after successful payment</li>
           <li>Keep your transaction reference for support</li>
         </ul>

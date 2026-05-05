@@ -15,6 +15,8 @@ const feeRoutes = require('./routes/fees');
 console.log('[app] fee routes loaded');
 const publicRoutes = require('./routes/public');
 console.log('[app] public routes loaded');
+const paymentRoutes = require('./routes/payments');
+console.log('[app] payment routes loaded');
 const errorHandler = require('./middleware/errorHandler');
 console.log('[app] errorHandler loaded');
 const { createHttpError } = require('./utils/httpError');
@@ -37,7 +39,6 @@ app.use(generalLimiter);
 
 // Parse JSON except for raw webhook body
 app.use((req, res, next) => {
-  if (req.path === '/api/webhooks/flutterwave') return next();
   express.json({ limit: '10mb' })(req, res, next);
 });
 
@@ -54,6 +55,7 @@ app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/public', publicRoutes);
+app.use('/api/payments', paymentRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/fees', paymentLimiter, feeRoutes);
 
