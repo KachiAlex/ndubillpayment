@@ -2,6 +2,7 @@ const express = require('express');
 const database = require('../utils/database');
 const asyncHandler = require('../middleware/asyncHandler');
 const { createHttpError } = require('../utils/httpError');
+const { finalizeSuccessfulPayment } = require('../utils/paymentFinalizer');
 
 const router = express.Router();
 
@@ -46,36 +47,9 @@ router.post('/flutterwave', express.raw({ type: 'application/json' }), asyncHand
     }
 
     if (status === 'successful') {
-      const paymentAmount = Number(payment.amount) || 0;
-      const paymentType = payment.type;
-      const paymentMetadata = typeof payment.metadata === 'string'
-        ? JSON.parse(payment.metadata || '{}')
-        : (payment.metadata || {});
-
-      await trx('transactions').where({ id: payment.id }).update({
-        status: 'completed',
-        flutterwave_ref: String(transaction_id || ''),
-        updated_at: new Date()
-      });
-
-      if (paymentType === 'wallet_funding' || paymentMetadata?.source === 'public_qr_payment') {
-        let wallet = await trx('wallets').where({ user_id: payment.user_id }).first();
-
-        if (!wallet) {
-          const [newWallet] = await trx('wallets').insert({
-            user_id: payment.user_id,
-            balance: paymentAmount,
-            currency: payment.currency || 'NGN'
-          }).returning('*');
-          wallet = newWallet;
-        } else {
-          await trx('wallets').where({ user_id: payment.user_id }).update({
-            balance: trx.raw('balance + ?', [paymentAmount]),
-            updated_at: new Date()
-          });
-        }
-
-        console.log('[Webhook] Wallet credited for tx_ref:', tx_ref, 'amount:', paymentAmount);
+      const result = await finalizeSuccessfulPayment(trx, payment, transaction_id);
+      if (result.completed && !result.alreadyCompleted) {
+        console.log('[Webhook] Wallet credited for tx_ref:', tx_ref, 'amount:', Number(payment.amount) || 0);
       }
     } else {
       await trx('transactions').where({ id: payment.id }).update({

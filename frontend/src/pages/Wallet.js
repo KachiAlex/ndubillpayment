@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useQuery } from 'react-query';
-import { useNavigate } from 'react-router-dom';
 import { useSearchParams } from 'react-router-dom';
 import { apiFetch } from '../api/config';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -30,7 +29,6 @@ const loadFlutterwaveScript = () => {
 
 const Wallet = () => {
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
   const { user } = useAuth();
   const [amount, setAmount] = useState('');
   const [amountDisplay, setAmountDisplay] = useState('');
@@ -89,6 +87,21 @@ const Wallet = () => {
     const txRef = data?.tx_ref || `TXN-${Date.now()}`;
     const callbackUrl = `${window.location.origin}/payment/callback?tx_ref=${encodeURIComponent(txRef)}&amount=${encodeURIComponent(String(numericAmount))}`;
 
+    const redirectToCallback = (response) => {
+      const redirectTarget = new URL(callbackUrl);
+      if (response?.status) {
+        redirectTarget.searchParams.set('status', response.status);
+      }
+      if (response?.transaction_id) {
+        redirectTarget.searchParams.set('transaction_id', response.transaction_id);
+      }
+      if (response?.flw_ref) {
+        redirectTarget.searchParams.set('flw_ref', response.flw_ref);
+      }
+
+      window.location.assign(redirectTarget.toString());
+    };
+
     window.FlutterwaveCheckout({
       public_key: flutterwavePublicKey,
       tx_ref: txRef,
@@ -110,14 +123,14 @@ const Wallet = () => {
       },
       callback: function (response) {
         if (response?.status === 'successful' || response?.status === 'completed') {
-          navigate(`/payment/callback?tx_ref=${encodeURIComponent(response.tx_ref || txRef)}&amount=${encodeURIComponent(String(numericAmount))}`);
+          redirectToCallback(response);
         }
       },
       onclose: function () {
-        navigate(`/payment/callback?tx_ref=${encodeURIComponent(txRef)}&amount=${encodeURIComponent(String(numericAmount))}`);
+        window.location.assign(callbackUrl);
       }
     });
-  }, [amount, flutterwavePublicKey, navigate, user?.email, user?.first_name, user?.last_name]);
+  }, [amount, flutterwavePublicKey, user?.email, user?.first_name, user?.last_name]);
 
   return (
     <div className="space-y-4 sm:space-y-6">

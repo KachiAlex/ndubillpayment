@@ -11,6 +11,7 @@ const PaymentCallback = () => {
   useEffect(() => {
     const txRef = searchParams.get('tx_ref');
     const flutterwaveStatus = searchParams.get('status');
+    const transactionId = searchParams.get('transaction_id');
 
     const clearPolling = () => {
       if (pollRef.current) {
@@ -19,15 +20,47 @@ const PaymentCallback = () => {
       }
     };
 
+    const redirectToWallet = (delay = 2500) => {
+      setTimeout(() => navigate(`/wallet?refresh=${Date.now()}`, { replace: true }), delay);
+    };
+
+    const confirmPaymentWithBackend = async () => {
+      if (!txRef || !transactionId) {
+        return false;
+      }
+
+      try {
+        const data = await apiFetch(`/public/transactions/${encodeURIComponent(txRef)}/confirm`, {
+          method: 'POST',
+          body: JSON.stringify({ transaction_id: transactionId })
+        });
+
+        if (data?.success && data?.transaction?.status === 'completed') {
+          clearPolling();
+          setStatus('success');
+          redirectToWallet(1500);
+          return true;
+        }
+      } catch (err) {
+        console.warn('[PaymentCallback] Backend confirmation failed:', err);
+      }
+
+      return false;
+    };
+
     const finalizePayment = async () => {
       if (!txRef) {
         if (flutterwaveStatus === 'successful') {
           setStatus('success');
-          setTimeout(() => navigate(`/wallet?refresh=${Date.now()}`, { replace: true }), 2500);
+          redirectToWallet();
         } else {
           setStatus('failed');
-          setTimeout(() => navigate(`/wallet?refresh=${Date.now()}`, { replace: true }), 2500);
+          redirectToWallet();
         }
+        return;
+      }
+
+      if (await confirmPaymentWithBackend()) {
         return;
       }
 
@@ -36,14 +69,14 @@ const PaymentCallback = () => {
         if (data?.transaction?.status === 'completed') {
           clearPolling();
           setStatus('success');
-          setTimeout(() => navigate(`/wallet?refresh=${Date.now()}`, { replace: true }), 2500);
+          redirectToWallet();
           return;
         }
 
         if (flutterwaveStatus && flutterwaveStatus !== 'successful') {
           clearPolling();
           setStatus('failed');
-          setTimeout(() => navigate(`/wallet?refresh=${Date.now()}`, { replace: true }), 2500);
+          redirectToWallet();
         }
       } catch (err) {
         console.warn('[PaymentCallback] Status check failed:', err);

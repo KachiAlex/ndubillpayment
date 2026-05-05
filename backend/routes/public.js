@@ -2,6 +2,7 @@ const express = require('express');
 const database = require('../utils/database');
 const asyncHandler = require('../middleware/asyncHandler');
 const { createHttpError } = require('../utils/httpError');
+const { finalizeSuccessfulPayment } = require('../utils/paymentFinalizer');
 const crypto = require('crypto');
 
 const router = express.Router();
@@ -132,6 +133,113 @@ router.get('/transactions/:txRef', asyncHandler(async (req, res) => {
   }
 
   res.json({ success: true, transaction });
+}));
+
+// Confirm a payment against Flutterwave as a fallback when webhook delivery is delayed
+router.post('/transactions/:txRef/confirm', asyncHandler(async (req, res) => {
+  const txRef = typeof req.params.txRef === 'string' ? req.params.txRef.trim() : '';
+  const transactionIdValue = req.body?.transaction_id ?? req.body?.transactionId ?? req.body?.flutterwave_transaction_id;
+  const transactionId = typeof transactionIdValue === 'string' || typeof transactionIdValue === 'number'
+    ? String(transactionIdValue).trim()
+    : '';
+
+  if (!txRef) {
+    throw createHttpError(400, 'Transaction reference is required', 'TX_REF_REQUIRED');
+  }
+
+  if (!transactionId) {
+    throw createHttpError(400, 'Transaction ID is required', 'TRANSACTION_ID_REQUIRED');
+  }
+
+  const secret = process.env.FLUTTERWAVE_SECRET_KEY;
+  if (!secret) {
+    throw createHttpError(500, 'Flutterwave secret key is not configured', 'FLUTTERWAVE_SECRET_NOT_CONFIGURED');
+  }
+
+  const verifyResponse = await fetch(`https://api.flutterwave.com/v3/transactions/${encodeURIComponent(transactionId)}/verify`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${secret}`,
+      Accept: 'application/json'
+    }
+  });
+
+  const verifyPayload = await verifyResponse.json().catch(() => null);
+  const verifiedTransaction = verifyPayload?.data || {};
+
+  if (!verifyResponse.ok || verifyPayload?.status !== 'success') {
+    throw createHttpError(502, 'Unable to verify payment with Flutterwave', 'FLUTTERWAVE_VERIFY_FAILED', {
+      status: verifyResponse.status,
+      response: verifyPayload
+    });
+  }
+
+  if (String(verifiedTransaction.tx_ref || '').trim() !== txRef) {
+    throw createHttpError(400, 'Transaction reference mismatch', 'TX_REF_MISMATCH', {
+      expected: txRef,
+      actual: verifiedTransaction.tx_ref || null
+    });
+  }
+
+  if (String(verifiedTransaction.status || '').toLowerCase() !== 'successful') {
+    throw createHttpError(400, 'Transaction is not successful', 'TRANSACTION_NOT_SUCCESSFUL', {
+      flutterwave_status: verifiedTransaction.status || null
+    });
+  }
+
+  const trx = await database.db.transaction();
+  try {
+    const payment = await trx('transactions').where({ reference: txRef }).forUpdate().first();
+
+    if (!payment) {
+      await trx.rollback();
+      return res.status(404).json({
+        success: false,
+        error: 'Transaction not found',
+        code: 'TRANSACTION_NOT_FOUND'
+      });
+    }
+
+    if (payment.status === 'completed') {
+      await trx.commit();
+      return res.json({
+        success: true,
+        verified: true,
+        transaction: {
+          tx_ref: txRef,
+          status: 'completed',
+          flutterwave_ref: transactionId
+        }
+      });
+    }
+
+    const localAmount = Number(payment.amount) || 0;
+    const verifiedAmount = Number(verifiedTransaction.amount) || 0;
+
+    if (localAmount && verifiedAmount && localAmount !== verifiedAmount) {
+      throw createHttpError(400, 'Transaction amount mismatch', 'AMOUNT_MISMATCH', {
+        expected: localAmount,
+        actual: verifiedAmount
+      });
+    }
+
+    await finalizeSuccessfulPayment(trx, payment, transactionId);
+    await trx.commit();
+
+    res.json({
+      success: true,
+      verified: true,
+      transaction: {
+        tx_ref: txRef,
+        status: 'completed',
+        flutterwave_ref: transactionId,
+        amount: localAmount
+      }
+    });
+  } catch (error) {
+    await trx.rollback();
+    throw error;
+  }
 }));
 
 module.exports = router;
