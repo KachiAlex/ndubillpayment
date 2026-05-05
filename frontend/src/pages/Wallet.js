@@ -118,7 +118,7 @@ const Wallet = () => {
         navigate(`/payment/callback?tx_ref=${encodeURIComponent(txRef)}&amount=${encodeURIComponent(String(numericAmount))}`);
       }
     });
-  }, [amount, flutterwavePublicKey, navigate, user?.email, user?.first_name, user?.last_name]);
+  }, [amount, flutterwavePublicKey, navigate, user?.email, user?.id, user?.first_name, user?.last_name]);
 
   return (
     <div className="space-y-4 sm:space-y-6">
