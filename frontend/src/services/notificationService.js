@@ -134,14 +134,7 @@ class NotificationService {
   showLowBalance(currentBalance, requiredAmount) {
     this.showNotification('Low Wallet Balance ⚠️', {
       body: `Current balance: ₦${currentBalance.toLocaleString()}. Required: ₦${requiredAmount.toLocaleString()}`,
-      requireInteraction: true,
-      actions: [
-        {
-          action: 'fund',
-          title: 'Fund Wallet',
-          icon: '/icon-192x192.png'
-        }
-      ]
+      requireInteraction: true
     });
   }
 

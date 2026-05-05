@@ -13,7 +13,6 @@ import ResetPassword from './pages/ResetPassword';
 import StudentDashboard from './pages/StudentDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import Wallet from './pages/Wallet';
-import WalletPayment from './pages/WalletPayment';
 import Transactions from './pages/Transactions';
 import Profile from './pages/Profile';
 import PaymentCallback from './pages/PaymentCallback';
@@ -94,10 +93,6 @@ function AppRoutes() {
             <Wallet />
           </Layout>
         ) : <Navigate to="/dashboard" replace />} 
-      />
-      <Route 
-        path="/wallet/payment" 
-        element={<WalletPayment />} 
       />
       <Route 
         path="/transactions" 

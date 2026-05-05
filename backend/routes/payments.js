@@ -97,33 +97,6 @@ router.post('/checkout/public', asyncHandler(async (req, res) => {
   });
 }));
 
-// Create a wallet top-up checkout transaction for authenticated users
-router.post('/checkout/wallet', authenticateJWT, asyncHandler(async (req, res) => {
-  const { amount, description } = req.body;
-  const numericAmount = Number(amount);
-
-  if (!numericAmount || numericAmount <= 0) {
-    throw createHttpError(400, 'Valid amount is required', 'INVALID_AMOUNT');
-  }
-
-  const txRef = `PAY-${Date.now()}-${req.user.id}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
-  const payment = await createTransaction({
-    userId: req.user.id,
-    txRef,
-    amount: numericAmount,
-    description: description || 'Wallet funding',
-    metadata: {
-      flow: 'wallet_topup',
-      source: 'wallet_checkout'
-    }
-  });
-
-  res.json({
-    success: true,
-    payment: buildPaymentResponse(payment)
-  });
-}));
-
 // Fetch a payment transaction by reference
 router.get('/transactions/:txRef', asyncHandler(async (req, res) => {
   const txRef = typeof req.params.txRef === 'string' ? req.params.txRef.trim() : '';

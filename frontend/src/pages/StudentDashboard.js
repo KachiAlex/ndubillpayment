@@ -61,7 +61,6 @@ const StudentDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricRegistered, setBiometricRegistered] = useState(false);
-  const [qrCodeDataURL, setQrCodeDataURL] = useState(null);
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
   const [paymentDialog, setPaymentDialog] = useState({ open: false, fee: null, amount: '' });
   const [amountDisplay, setAmountDisplay] = useState('');
@@ -171,58 +170,6 @@ const StudentDashboard = () => {
     }
   }, [overdueFees]);
 
-  // Generate QR code for wallet
-  useEffect(() => {
-    const generateWalletQR = async () => {
-      try {
-        const user = JSON.parse(localStorage.getItem('user'));
-        const matricNumber = user?.matric_number;
-        if (matricNumber) {
-          const qrCode = await qrCodeService.generateWalletQR(matricNumber, 50000); // Default amount
-          setQrCodeDataURL(qrCode);
-        }
-      } catch (error) {
-        console.error('Error generating wallet QR code:', error);
-      }
-    };
-
-    generateWalletQR();
-  }, []);
-
-  const handleFund = (e) => {
-    e.preventDefault();
-    
-    window.location.assign('/wallet');
-  };
-
-  const handleDownloadQR = () => {
-    if (qrCodeDataURL) {
-      qrCodeService.downloadQRCode(qrCodeDataURL, 'ndu-wallet-qr.png');
-    }
-  };
-
-  const handlePrintQR = () => {
-    if (qrCodeDataURL) {
-      qrCodeService.printQRCode(qrCodeDataURL, 'NDU Wallet QR Code');
-    }
-  };
-
-  const handleGenerateQR = async () => {
-    try {
-      const user = JSON.parse(localStorage.getItem('user'));
-      const qrData = `ndu-wallet:${user.id}`;
-      const dataUrl = await qrCodeService.generateQRCode(qrData);
-      setQrCodeDataURL(dataUrl);
-      notificationService.showNotification('QR Code Generated ✅', {
-        body: 'Your wallet QR code is ready'
-      });
-    } catch (error) {
-      notificationService.showNotification('QR Code Generation Failed ❌', {
-        body: 'Could not generate QR code'
-      });
-    }
-  };
-
   const handleRegisterBiometric = async () => {
     try {
       const user = JSON.parse(localStorage.getItem('user'));
@@ -327,7 +274,7 @@ const StudentDashboard = () => {
           <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
             <div className="text-xs sm:text-sm text-gray-600">Action Required</div>
             <div className="text-base sm:text-lg font-semibold text-gray-900">
-              {walletBalanceNgn > 0 ? 'None' : 'Fund Wallet'}
+              {walletBalanceNgn > 0 ? 'None' : 'Contact Admin'}
             </div>
           </div>
         </div>
@@ -341,7 +288,7 @@ const StudentDashboard = () => {
               <div>
                 <h4 className="text-sm font-medium text-yellow-800">Payment Required</h4>
                 <p className="text-xs sm:text-sm text-yellow-700 mt-1">
-                  You have an outstanding balance. Please fund your wallet to complete your tuition payment.
+                  You have an outstanding balance. Please contact the bursar for payment instructions.
                 </p>
               </div>
             </div>
@@ -394,15 +341,6 @@ const StudentDashboard = () => {
                     <p className="text-blue-100 text-xs sm:text-sm font-medium">Wallet Balance</p>
                     <p className="text-2xl sm:text-4xl font-bold mt-1">₦{walletBalanceNgn?.toLocaleString() || 0}</p>
                   </div>
-                  <button
-                    onClick={handleFund}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2 sm:px-6 sm:py-3 rounded-xl bg-white text-blue-700 font-semibold shadow-md hover:shadow-lg transition text-sm sm:text-base"
-                  >
-                    <span>Fund Wallet</span>
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 12h14M12 5l7 7-7 7"/>
-                    </svg>
-                  </button>
                 </div>
                 <div className="mt-4 flex items-center gap-2">
                   <h3 className="text-sm uppercase tracking-widest text-cyan-200">Student Wallet</h3>
@@ -415,33 +353,6 @@ const StudentDashboard = () => {
 
           {/* Mobile Features */}
           <div className="space-y-4 sm:space-y-6">
-            {/* QR Code Section */}
-            <div className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-sm">
-              <h4 className="text-sm font-semibold text-gray-900 mb-4">Quick Access QR Code</h4>
-              {qrCodeDataURL && (
-                <div className="text-center">
-                  <img src={qrCodeDataURL} alt="Wallet QR Code" className="mx-auto w-28 h-28 sm:w-32 sm:h-32 border border-gray-200 rounded-lg" />
-                  <p className="text-xs text-gray-500 mt-2">Scan to quickly fund wallet</p>
-                  <div className="flex gap-2 mt-3">
-                    <button onClick={handleDownloadQR} className="flex-1 px-3 py-2 text-xs sm:text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition">
-                      Download
-                    </button>
-                    <button onClick={handlePrintQR} className="flex-1 px-3 py-2 text-xs sm:text-sm bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 transition">
-                      Print
-                    </button>
-                  </div>
-                </div>
-              )}
-              {!qrCodeDataURL && (
-                <button
-                  onClick={handleGenerateQR}
-                  className="w-full px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                >
-                  Generate QR Code
-                </button>
-              )}
-            </div>
-
             {/* Biometric Section */}
             <div className="bg-white p-4 sm:p-6 rounded-2xl border border-gray-100 shadow-sm">
               <h4 className="text-sm font-semibold text-gray-900 mb-4">Biometric Authentication</h4>

@@ -1,25 +1,6 @@
 import QRCode from 'qrcode';
 
 const qrCodeService = {
-  generateWalletQR: async (matricNumber, amount = 0) => {
-    try {
-      const frontendUrl = process.env.REACT_APP_FRONTEND_URL || window.location.origin;
-      const qrData = `${frontendUrl.replace(/\/$/, '')}/wallet/payment?matric_number=${encodeURIComponent(matricNumber)}&amount=${amount}`;
-      const dataUrl = await QRCode.toDataURL(qrData, {
-        width: 300,
-        margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#ffffff'
-        }
-      });
-      return dataUrl;
-    } catch (error) {
-      console.error('Error generating wallet QR code:', error);
-      throw error;
-    }
-  },
-
   generateQRCode: async (data) => {
     try {
       const qrData = typeof data === 'string' ? data : JSON.stringify(data);
