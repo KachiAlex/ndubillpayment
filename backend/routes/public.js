@@ -83,18 +83,18 @@ router.post('/payment-intents', asyncHandler(async (req, res) => {
 
   await database.db('transactions').insert({
     user_id: student.id,
-    tx_ref: txRef,
+    reference: txRef,
     type: 'wallet_funding',
     amount: numericAmount,
     currency: 'NGN',
     status: 'pending',
     payment_method: 'custom_test_flow',
     description: `Test checkout for ${student.first_name} ${student.last_name}`,
-    metadata: JSON.stringify({
+    payment_gateway_response: {
       flow: 'public_qr',
       source: 'public_payment_intent',
       matric_number: student.matric_number
-    })
+    }
   });
 
   res.json({
@@ -125,8 +125,8 @@ router.get('/transactions/:txRef', asyncHandler(async (req, res) => {
   }
 
   const transaction = await database.db('transactions')
-    .where({ tx_ref: txRef })
-    .select('tx_ref', 'type', 'amount', 'currency', 'status', 'payment_method', 'description', 'metadata', 'created_at', 'updated_at')
+    .where({ reference: txRef })
+    .select('reference as tx_ref', 'type', 'amount', 'currency', 'status', 'payment_method', 'description', 'payment_gateway_response', 'created_at', 'updated_at')
     .first();
 
   if (!transaction) {
@@ -150,7 +150,7 @@ router.post('/transactions/:txRef/complete', asyncHandler(async (req, res) => {
 
   const trx = await database.db.transaction();
   try {
-    const payment = await trx('transactions').where({ tx_ref: txRef }).forUpdate().first();
+    const payment = await trx('transactions').where({ reference: txRef }).forUpdate().first();
 
     if (!payment) {
       await trx.rollback();

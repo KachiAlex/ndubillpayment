@@ -18,7 +18,7 @@ router.post('/test-payment', asyncHandler(async (req, res) => {
 
   const trx = await database.db.transaction();
   try {
-    const payment = await trx('transactions').where({ tx_ref: txRef }).first();
+    const payment = await trx('transactions').where({ reference: txRef }).first();
 
     if (!payment) {
       console.warn('[Webhook] Transaction not found for tx_ref:', txRef);
