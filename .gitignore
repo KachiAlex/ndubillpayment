@@ -80,3 +80,5 @@ firebase-adminsdk-*.json
 
 .vercel
 .env*.local
+
+.env*.local
