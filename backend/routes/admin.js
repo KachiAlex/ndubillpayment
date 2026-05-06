@@ -146,7 +146,7 @@ router.get('/reports', asyncHandler(async (req, res) => {
       'users.department',
       'users.level'
     )
-    .where('transactions.status', 'completed');
+    .whereIn('transactions.status', ['completed', 'successful']);
 
   if (start_date) {
     query = query.where('transactions.created_at', '>=', start_date);

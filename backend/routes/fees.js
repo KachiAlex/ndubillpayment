@@ -281,7 +281,7 @@ router.post('/:id/pay', authenticateJWT, authorizeRoles('student'), asyncHandler
       user_id: req.user.id,
       reference: reference,
       type: 'payment',
-      status: 'successful',
+      status: 'completed',
       amount: amountToPay,
       currency: 'NGN',
       description: `Payment for ${fee.name} (${fee.academic_session})`,
