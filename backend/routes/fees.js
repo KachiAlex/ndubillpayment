@@ -301,7 +301,8 @@ router.post('/:id/pay', authenticateJWT, authorizeRoles('student'), asyncHandler
         .update({
           amount_paid: newAmountPaid,
           remaining_balance: newRemaining,
-          status: newStatus
+          status: newStatus,
+          transaction_id: transaction.id
         })
         .returning('*');
     } else {
@@ -318,7 +319,8 @@ router.post('/:id/pay', authenticateJWT, authorizeRoles('student'), asyncHandler
         total_amount: totalAmount,
         remaining_balance: newRemaining,
         status: newStatus,
-        reference
+        reference,
+        transaction_id: transaction.id
       }).returning('*');
     }
 
