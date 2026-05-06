@@ -67,9 +67,10 @@ const StudentDashboard = () => {
   const [isFundModalOpen, setIsFundModalOpen] = useState(false);
 
   const formatNumberWithCommas = (value) => {
-    const numericValue = value.replace(/,/g, '').replace(/\D/g, '');
+    const numericValue = value.replace(/,/g, '');
     if (!numericValue) return '';
-    return Number(numericValue).toLocaleString('en-US');
+    const parsed = Number(numericValue);
+    return isNaN(parsed) ? '' : parsed.toLocaleString('en-US');
   };
 
   const handlePaymentAmountChange = (e) => {
