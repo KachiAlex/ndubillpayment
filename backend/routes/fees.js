@@ -6,8 +6,32 @@ const PDFDocument = require('pdfkit');
 const AuditLogger = require('../utils/audit');
 const asyncHandler = require('../middleware/asyncHandler');
 const { createHttpError } = require('../utils/httpError');
+const multer = require('multer');
+const XLSX = require('xlsx');
+const csv = require('csv-parser');
 
 const router = express.Router();
+
+// Configure multer for file uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // xlsx
+      'application/vnd.ms-excel', // xls
+      'text/csv', // csv
+      'application/csv'
+    ];
+    if (allowedTypes.includes(file.mimetype) || file.originalname.endsWith('.csv')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only Excel and CSV files are allowed.'));
+    }
+  }
+});
 
 function normalizeOptionalDate(value) {
   if (!value) return null;
@@ -608,17 +632,17 @@ router.put('/refunds/:refundId/process', authenticateJWT, authorizeRoles('bursar
       await trx.commit();
 
       await AuditLogger.log({
-        action: 'refund_approved',
+        action: 'refund_processed',
         userId: req.user.id,
         userEmail: req.user.email,
         userType: req.user.user_type,
         entityType: 'refund',
-        entityId: parseInt(refundId),
-        newValues: { refund_id: refundId, action: 'approve', amount: refund.amount },
+        entityId: refundId,
+        newValues: { refundId, amount: refund.amount, reason: refund.reason },
         req
       });
 
-      return res.json({ success: true, message: 'Refund processed successfully' });
+      res.json({ success: true, message: 'Refund processed successfully' });
     }
 
     await trx.rollback();
@@ -627,6 +651,131 @@ router.put('/refunds/:refundId/process', authenticateJWT, authorizeRoles('bursar
     await trx.rollback();
     console.error('[fees] refund process error:', err.message);
     throw err;
+  }
+}));
+
+// ── BURSAR: Bulk update fees via Excel/CSV ──
+router.post('/bulk-upload', authenticateJWT, authorizeRoles('bursar', 'admin'), upload.single('file'), asyncHandler(async (req, res) => {
+  if (!req.file) {
+    throw createHttpError(400, 'No file uploaded', 'NO_FILE');
+  }
+
+  const file = req.file;
+  const originalname = file.originalname.toLowerCase();
+  let fees = [];
+
+  try {
+    if (originalname.endsWith('.csv')) {
+      // Parse CSV file
+      const rows = file.buffer.toString('utf-8').split('\n').filter(row => row.trim());
+      const headers = rows[0].split(',').map(h => h.trim().toLowerCase());
+      
+      for (let i = 1; i < rows.length; i++) {
+        const values = rows[i].split(',').map(v => v.trim());
+        if (values.length === headers.length) {
+          const fee = {};
+          headers.forEach((header, index) => {
+            fee[header] = values[index];
+          });
+          fees.push(fee);
+        }
+      }
+    } else {
+      // Parse Excel file
+      const workbook = XLSX.read(file.buffer, { type: 'buffer' });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const data = XLSX.utils.sheet_to_json(sheet);
+      fees = data;
+    }
+
+    if (fees.length === 0) {
+      throw createHttpError(400, 'No fees found in file', 'NO_FEES');
+    }
+
+    // Validate and process fees
+    const processedFees = [];
+    const errors = [];
+
+    for (const fee of fees) {
+      try {
+        // Map CSV/Excel columns to database fields
+        const feeData = {
+          name: fee.name || fee.fee_name || fee['Fee Name'],
+          amount: parseFloat(fee.amount || fee.Amount || fee['Amount']),
+          academic_session: fee.academic_session || fee.session || fee['Academic Session'] || fee['Session'],
+          department: fee.department || fee.Department || fee['Department'] === 'ALL' ? null : (fee.department || fee.Department || fee['Department'] || null),
+          level: fee.level || fee.Level || fee['Level'] || null,
+          description: fee.description || fee.Description || fee['Description'] || null,
+          due_date: normalizeOptionalDate(fee.due_date || fee['Due Date'] || fee.duedate),
+          created_by: req.user.id
+        };
+
+        // Validate required fields
+        if (!feeData.name || !feeData.amount || !feeData.academic_session) {
+          errors.push({
+            row: processedFees.length + 1,
+            error: 'Missing required fields (name, amount, academic_session)',
+            data: fee
+          });
+          continue;
+        }
+
+        if (isNaN(feeData.amount) || feeData.amount <= 0) {
+          errors.push({
+            row: processedFees.length + 1,
+            error: 'Invalid amount',
+            data: fee
+          });
+          continue;
+        }
+
+        // Check if fee exists by name and session (update) or create new
+        const existingFee = await database.db('fees')
+          .where('name', feeData.name)
+          .where('academic_session', feeData.academic_session)
+          .first();
+
+        if (existingFee) {
+          // Update existing fee
+          const [updatedFee] = await database.db('fees')
+            .where('id', existingFee.id)
+            .update(feeData)
+            .returning('*');
+          processedFees.push({ action: 'updated', fee: updatedFee });
+        } else {
+          // Create new fee
+          const [newFee] = await database.db('fees').insert(feeData).returning('*');
+          processedFees.push({ action: 'created', fee: newFee });
+        }
+
+        await AuditLogger.log({
+          action: existingFee ? 'fee_updated_bulk' : 'fee_created_bulk',
+          userId: req.user.id,
+          userEmail: req.user.email,
+          userType: req.user.user_type,
+          entityType: 'fee',
+          entityId: existingFee ? existingFee.id : null,
+          newValues: feeData,
+          req
+        });
+      } catch (error) {
+        errors.push({
+          row: processedFees.length + 1,
+          error: error.message,
+          data: fee
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Processed ${processedFees.length} fees successfully`,
+      processed: processedFees,
+      errors: errors
+    });
+  } catch (error) {
+    throw createHttpError(500, `Failed to process file: ${error.message}`, 'FILE_PROCESSING_ERROR');
   }
 }));
 

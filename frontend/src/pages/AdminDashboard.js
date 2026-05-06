@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useQuery } from 'react-query';
 import { toast } from 'react-toastify';
 import { getReports, getUsers, getTransactions, exportToExcel, exportToCSV, reconcilePayments, searchStudentPayments, downloadReceipt, exportPaidStudentsToExcel, exportPaidStudentsToCSV } from '../api/admin';
-import { getAllFees, createFee, updateFee, deleteFee } from '../api/fees';
+import { getAllFees, createFee, updateFee, deleteFee, bulkUploadFees } from '../api/fees';
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -28,6 +28,8 @@ const AdminDashboard = () => {
   const [feesLoading, setFeesLoading] = useState(false);
   const [feeForm, setFeeForm] = useState({ name: '', amount: '', department: '', level: '', academic_session: '', due_date: '' });
   const [amountDisplay, setAmountDisplay] = useState('');
+  const [bulkUploadFile, setBulkUploadFile] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const formatNumberWithCommas = (value) => {
     const numericValue = value.replace(/,/g, '').replace(/\D/g, '');
@@ -39,6 +41,31 @@ const AdminDashboard = () => {
     const formatted = formatNumberWithCommas(e.target.value);
     setAmountDisplay(formatted);
     setFeeForm(p => ({ ...p, amount: formatted.replace(/,/g, '') }));
+  };
+
+  const handleBulkUpload = async (e) => {
+    e.preventDefault();
+    if (!bulkUploadFile) {
+      toast.error('Please select a file');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const result = await bulkUploadFees(bulkUploadFile);
+      toast.success(result.message);
+      if (result.errors && result.errors.length > 0) {
+        toast.warning(`${result.errors.length} errors occurred during upload`);
+      }
+      setBulkUploadFile(null);
+      // Refresh fees data
+      const fees = await getAllFees();
+      setFeesData(fees.fees || []);
+    } catch (error) {
+      toast.error(error.message || 'Failed to upload fees');
+    } finally {
+      setIsUploading(false);
+    }
   };
   const [editingFeeId, setEditingFeeId] = useState(null);
   const [showNewDeptInput, setShowNewDeptInput] = useState(false);
@@ -1092,6 +1119,29 @@ const AdminDashboard = () => {
       {/* Fees Tab */}
       {activeTab === 'fees' && (
         <div className="space-y-6">
+          {/* Bulk Upload Section */}
+          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Bulk Upload Fees</h3>
+            <p className="text-sm text-gray-600 mb-4">Upload fees in bulk using Excel (.xlsx) or CSV files. The file should contain columns: name, amount, academic_session, department (optional), level (optional), description (optional), due_date (optional).</p>
+            <form onSubmit={handleBulkUpload} className="space-y-4">
+              <div className="flex items-center gap-4">
+                <input
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  onChange={(e) => setBulkUploadFile(e.target.files[0])}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <button
+                  type="submit"
+                  disabled={isUploading || !bulkUploadFile}
+                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-semibold disabled:bg-gray-300 disabled:cursor-not-allowed"
+                >
+                  {isUploading ? 'Uploading...' : 'Upload'}
+                </button>
+              </div>
+            </form>
+          </div>
+
           <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">{editingFeeId ? 'Edit Fee' : 'Create Fee'}</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">

@@ -13,6 +13,7 @@
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "csurf": "^1.11.0",
+    "csv-parser": "^3.2.0",
     "dotenv": "^16.3.1",
     "exceljs": "^4.4.0",
     "express": "^4.18.2",
@@ -22,12 +23,14 @@
     "joi": "^17.11.0",
     "jsonwebtoken": "^9.0.2",
     "knex": "^3.0.1",
+    "multer": "^2.1.1",
     "nodemailer": "^8.0.7",
     "pdfkit": "^0.14.0",
     "pg": "^8.11.3",
     "qrcode": "^1.5.3",
     "serverless-http": "^3.2.0",
     "uuid": "^9.0.0",
-    "validator": "^13.15.35"
+    "validator": "^13.15.35",
+    "xlsx": "^0.18.5"
   }
 }
