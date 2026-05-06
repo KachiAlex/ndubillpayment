@@ -1123,6 +1123,14 @@ const AdminDashboard = () => {
           <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Bulk Upload Fees</h3>
             <p className="text-sm text-gray-600 mb-4">Upload fees in bulk using Excel (.xlsx) or CSV files. The file should contain columns: name, amount, academic_session, department (optional), level (optional), description (optional), due_date (optional).</p>
+            <div className="mb-4">
+              <button
+                onClick={() => window.open('/sample-fees-import.csv', '_blank')}
+                className="text-sm text-blue-600 hover:text-blue-700 underline"
+              >
+                Download sample CSV file
+              </button>
+            </div>
             <form onSubmit={handleBulkUpload} className="space-y-4">
               <div className="flex items-center gap-4">
                 <input
