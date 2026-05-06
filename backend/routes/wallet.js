@@ -15,7 +15,11 @@ router.get('/balance', authenticateJWT, asyncHandler(async (req, res) => {
 
 // Get transaction history
 router.get('/transactions', authenticateJWT, asyncHandler(async (req, res) => {
-  const transactions = await database.db('transactions').where({ user_id: req.user.id }).orderBy('created_at', 'desc');
+  const limit = parseInt(req.query.limit) || 10;
+  const transactions = await database.db('transactions')
+    .where({ user_id: req.user.id })
+    .orderBy('created_at', 'desc')
+    .limit(limit);
   res.json({ success: true, transactions });
 }));
 
