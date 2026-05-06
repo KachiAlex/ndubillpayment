@@ -480,7 +480,7 @@ const StudentDashboard = () => {
                           {!fee.is_paid && fee.remaining_balance > 0 && (
                             <button
                               onClick={() => openPaymentDialog(fee)}
-                              disabled={walletBalanceNgn < fee.remaining_balance || overdue}
+                              disabled={overdue}
                               className={`px-3 py-1.5 text-xs text-white rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed ${overdue ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
                             >
                               {overdue ? 'Payment closed' : 'Pay'}
@@ -593,8 +593,7 @@ const StudentDashboard = () => {
                   payFeeMutation.isLoading ||
                   !paymentDialog.amount ||
                   Number(paymentDialog.amount) <= 0 ||
-                  Number(paymentDialog.amount) > Number(paymentDialog.fee.remaining_balance) ||
-                  walletBalanceNgn < Number(paymentDialog.amount)
+                  Number(paymentDialog.amount) > Number(paymentDialog.fee.remaining_balance)
                 }
                 className="flex-1 px-3 py-2 sm:px-4 sm:py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
               >
