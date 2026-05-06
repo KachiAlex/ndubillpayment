@@ -33,7 +33,7 @@ const finalizeSuccessfulPayment = async (trx, payment, transactionId) => {
   }
 
   const paymentAmount = Number(lockedPayment.amount) || 0;
-  const paymentMetadata = normalizePaymentMetadata(lockedPayment.metadata);
+  const paymentMetadata = normalizePaymentMetadata(lockedPayment.payment_gateway_response);
   const completedMetadata = {
     ...paymentMetadata,
     provider_reference: String(transactionId || '')
@@ -41,11 +41,11 @@ const finalizeSuccessfulPayment = async (trx, payment, transactionId) => {
 
   await trx('transactions').where({ id: lockedPayment.id }).update({
     status: 'completed',
-    metadata: JSON.stringify(completedMetadata),
+    payment_gateway_response: completedMetadata,
     updated_at: new Date()
   });
 
-  if (lockedPayment.type === 'wallet_funding' || paymentMetadata?.source === 'public_qr_payment') {
+  if (lockedPayment.type === 'payment' || paymentMetadata?.source === 'public_qr_payment') {
     const wallet = await trx('wallets').where({ user_id: lockedPayment.user_id }).first();
 
     if (!wallet) {
