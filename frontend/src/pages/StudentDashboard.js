@@ -20,7 +20,7 @@ const useWallet = () => {
 const useRecentTx = () => {
   return useQuery(['wallet-transactions'], async () => {
     const data = await apiFetch('/wallet/transactions?limit=5');
-    return data; // [{reference, amount, status, date, receipt_id}]
+    return data.transactions || []; // Extract transactions array from response
   });
 };
 
