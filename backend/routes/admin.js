@@ -146,7 +146,7 @@ router.get('/reports', asyncHandler(async (req, res) => {
       'users.department',
       'users.level'
     )
-    .where('transactions.status', 'completed');
+    .whereIn('transactions.status', ['completed', 'successful']);
 
   if (start_date) {
     query = query.where('transactions.created_at', '>=', start_date);
@@ -454,6 +454,47 @@ router.get('/receipt/:identifier', asyncHandler(async (req, res) => {
   res.send(pdfBuffer);
 }));
 
+// Generate receipt for any transaction
+router.get('/transactions/:transactionId/receipt', asyncHandler(async (req, res) => {
+  const transaction = await database.db('transactions')
+    .join('users', 'transactions.user_id', 'users.id')
+    .where('transactions.id', req.params.transactionId)
+    .select('transactions.*', 'users.first_name', 'users.last_name', 'users.matric_number', 'users.email')
+    .first();
+
+  if (!transaction) {
+    throw createHttpError(404, 'Transaction not found', 'TRANSACTION_NOT_FOUND');
+  }
+
+  const PDFDocument = require('pdfkit');
+  const doc = new PDFDocument({ size: 'A4', margin: 50 });
+  const chunks = [];
+  doc.on('data', chunk => chunks.push(chunk));
+
+  doc.fontSize(20).text('NDU Payment Receipt', { align: 'center' });
+  doc.moveDown();
+  doc.fontSize(12).text(`Reference: ${transaction.reference}`);
+  doc.text(`Date: ${new Date(transaction.created_at).toLocaleDateString()}`);
+  doc.moveDown();
+  doc.fontSize(14).text(`Student: ${transaction.first_name} ${transaction.last_name}`);
+  doc.text(`Matric No: ${transaction.matric_number || 'N/A'}`);
+  doc.text(`Email: ${transaction.email}`);
+  doc.moveDown();
+  doc.text(`Type: ${transaction.type}`);
+  doc.text(`Description: ${transaction.description || 'N/A'}`);
+  doc.moveDown();
+  doc.fontSize(14).text(`Amount: ₦${Number(transaction.amount).toLocaleString()}`);
+  doc.text(`Status: ${transaction.status.toUpperCase()}`);
+  doc.text(`Payment Method: ${transaction.payment_method || 'N/A'}`);
+
+  doc.end();
+
+  const pdfBuffer = Buffer.concat(chunks);
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="receipt-${transaction.reference}.pdf"`);
+  res.send(pdfBuffer);
+}));
+
 // Search student payments
 router.get('/search-student', asyncHandler(async (req, res) => {
   const { student_id, department } = req.query;
@@ -571,7 +612,7 @@ router.get('/export/excel', asyncHandler(async (req, res) => {
     transactions.forEach(tx => {
       worksheet.addRow({
         id: tx.id,
-        tx_ref: tx.tx_ref,
+        tx_ref: tx.reference,
         matric_number: tx.matric_number || 'N/A',
         first_name: tx.first_name,
         last_name: tx.last_name,
@@ -654,7 +695,7 @@ router.get('/export/csv', asyncHandler(async (req, res) => {
       headers.join(','),
       ...transactions.map(tx => [
         tx.id,
-        tx.tx_ref,
+        tx.reference,
         tx.matric_number || 'N/A',
         tx.first_name,
         tx.last_name,

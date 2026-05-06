@@ -910,16 +910,17 @@ const AdminDashboard = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Receipt</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {transactionsLoading ? (
                   <tr>
-                    <td colSpan="6" className="px-6 py-10 text-center text-gray-500">Loading...</td>
+                    <td colSpan="7" className="px-6 py-10 text-center text-gray-500">Loading...</td>
                   </tr>
                 ) : allTransactions.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="px-6 py-10 text-center text-gray-500">No transactions found</td>
+                    <td colSpan="7" className="px-6 py-10 text-center text-gray-500">No transactions found</td>
                   </tr>
                 ) : (
                   allTransactions.map((transaction) => (
@@ -948,7 +949,15 @@ const AdminDashboard = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {transaction.tx_ref}
+                        {transaction.reference}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <button
+                          onClick={() => handleDownloadReceipt(transaction.id)}
+                          className="text-blue-600 hover:text-blue-800 font-medium"
+                        >
+                          Download
+                        </button>
                       </td>
                     </tr>
                   ))
