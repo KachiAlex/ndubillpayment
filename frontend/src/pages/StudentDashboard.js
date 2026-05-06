@@ -197,36 +197,6 @@ const StudentDashboard = () => {
     }
   };
 
-  const handleDownloadReceipt = async (transactionId) => {
-    try {
-      const response = await fetch(`/api/admin/transactions/${transactionId}/receipt`, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to download receipt');
-      }
-
-      const blob = await response.blob();
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.download = `receipt-${transactionId}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(downloadUrl);
-    } catch (error) {
-      console.error('Receipt download error:', error);
-      notificationService.showNotification('Receipt Download Failed ❌', {
-        body: 'Could not download receipt'
-      });
-    }
-  };
-
   const openPaymentDialog = (fee) => {
     if (isOverdueFee(fee)) {
       return;
@@ -533,19 +503,9 @@ const StudentDashboard = () => {
                           ) : (
                             <div className="space-y-2">
                               {feeHistory.transactions.map(tx => (
-                                <div key={tx.id} className="flex justify-between items-center text-xs">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-gray-600">{new Date(tx.created_at).toLocaleDateString()}</span>
-                                    <span className="font-medium">₦{Number(tx.amount).toLocaleString()}</span>
-                                  </div>
-                                  {tx.status === 'completed' && (
-                                    <button
-                                      onClick={() => handleDownloadReceipt(tx.id)}
-                                      className="text-blue-600 hover:text-blue-800 font-medium"
-                                    >
-                                      Receipt
-                                    </button>
-                                  )}
+                                <div key={tx.id} className="flex justify-between text-xs">
+                                  <span className="text-gray-600">{new Date(tx.created_at).toLocaleDateString()}</span>
+                                  <span className="font-medium">₦{Number(tx.amount).toLocaleString()}</span>
                                 </div>
                               ))}
                             </div>
@@ -590,14 +550,6 @@ const StudentDashboard = () => {
                       {tx.type === 'credit' ? '+' : '-'}₦{Number(tx.amount).toLocaleString()}
                     </p>
                     <p className="text-xs text-gray-500 capitalize">{tx.status}</p>
-                    {tx.status === 'completed' && (
-                      <button
-                        onClick={() => handleDownloadReceipt(tx.id)}
-                        className="text-xs text-blue-600 hover:text-blue-800 font-medium mt-1"
-                      >
-                        Download Receipt
-                      </button>
-                    )}
                   </div>
                 </div>
               ))}

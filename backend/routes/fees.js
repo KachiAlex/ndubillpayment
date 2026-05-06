@@ -281,7 +281,7 @@ router.post('/:id/pay', authenticateJWT, authorizeRoles('student'), asyncHandler
       user_id: req.user.id,
       reference: reference,
       type: 'payment',
-      status: 'completed',
+      status: 'successful',
       amount: amountToPay,
       currency: 'NGN',
       description: `Payment for ${fee.name} (${fee.academic_session})`,
@@ -301,8 +301,7 @@ router.post('/:id/pay', authenticateJWT, authorizeRoles('student'), asyncHandler
         .update({
           amount_paid: newAmountPaid,
           remaining_balance: newRemaining,
-          status: newStatus,
-          transaction_id: transaction.id
+          status: newStatus
         })
         .returning('*');
     } else {
@@ -319,8 +318,7 @@ router.post('/:id/pay', authenticateJWT, authorizeRoles('student'), asyncHandler
         total_amount: totalAmount,
         remaining_balance: newRemaining,
         status: newStatus,
-        reference,
-        transaction_id: transaction.id
+        reference
       }).returning('*');
     }
 

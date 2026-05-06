@@ -131,7 +131,7 @@ export const searchStudentPayments = async (filters = {}) => {
 
 // Download receipt for a transaction
 export const downloadReceipt = async (transactionId) => {
-  const response = await fetch(`${API_BASE}/admin/transactions/${transactionId}/receipt`, {
+  const response = await fetch(`${API_BASE}/admin/receipt/${transactionId}`, {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${localStorage.getItem('token')}`,
