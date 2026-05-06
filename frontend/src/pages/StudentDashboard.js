@@ -124,7 +124,7 @@ const StudentDashboard = () => {
     }
   );
 
-  const walletBalanceNgn = wallet?.balance ?? 0;
+  const walletBalanceNgn = Number(wallet?.balance) ?? 0;
   const recentTx = Array.isArray(txs) ? txs : [];
   const overdueFees = useMemo(() => {
     return Array.isArray(fees) ? fees.filter(isOverdueFee) : [];

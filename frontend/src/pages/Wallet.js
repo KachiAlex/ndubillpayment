@@ -47,7 +47,7 @@ const Wallet = () => {
             />
           </div>
         ) : (
-          <p className="text-3xl sm:text-4xl font-bold text-blue-600">₦{wallet?.balance?.toLocaleString() || 0}</p>
+          <p className="text-3xl sm:text-4xl font-bold text-blue-600">₦{Number(wallet?.balance)?.toLocaleString() || 0}</p>
         )}
       </div>
 
