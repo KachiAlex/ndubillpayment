@@ -146,14 +146,14 @@ router.post('/transactions/:txRef/complete', asyncHandler(async (req, res) => {
       });
     }
 
-    if (payment.status === 'completed') {
+    if (payment.status === 'successful') {
       await trx.commit();
       return res.json({
         success: true,
         completed: true,
         transaction: {
           tx_ref: txRef,
-          status: 'completed',
+          status: 'successful',
           amount: Number(payment.amount) || 0
         }
       });
@@ -174,7 +174,7 @@ router.post('/transactions/:txRef/complete', asyncHandler(async (req, res) => {
       completed: true,
       transaction: {
         tx_ref: txRef,
-        status: 'completed',
+        status: 'successful',
         amount: Number(payment.amount) || 0
       },
       alreadyCompleted: result.alreadyCompleted || false

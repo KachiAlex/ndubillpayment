@@ -28,7 +28,7 @@ const finalizeSuccessfulPayment = async (trx, payment, transactionId) => {
     return { found: false, completed: false, alreadyCompleted: false };
   }
 
-  if (lockedPayment.status === 'completed') {
+  if (lockedPayment.status === 'successful') {
     return { found: true, completed: true, alreadyCompleted: true, payment: lockedPayment };
   }
 
@@ -40,7 +40,7 @@ const finalizeSuccessfulPayment = async (trx, payment, transactionId) => {
   };
 
   await trx('transactions').where({ id: lockedPayment.id }).update({
-    status: 'completed',
+    status: 'successful',
     payment_gateway_response: completedMetadata,
     updated_at: new Date()
   });

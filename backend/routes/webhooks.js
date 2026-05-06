@@ -26,8 +26,8 @@ router.post('/test-payment', asyncHandler(async (req, res) => {
       return res.status(200).json({ success: true });
     }
 
-    if (payment.status === 'completed') {
-      console.log('[Webhook] Transaction already completed:', txRef);
+    if (payment.status === 'successful') {
+      console.log('[Webhook] Transaction already successful:', txRef);
       await trx.rollback();
       return res.status(200).json({ success: true });
     }
