@@ -282,9 +282,9 @@ router.post('/:id/pay', authenticateJWT, authorizeRoles('student'), asyncHandler
     // Create transaction record
     const [transaction] = await trx('transactions').insert({
       user_id: req.user.id,
-      tx_ref: reference,
+      reference: reference,
       type: 'payment',
-      status: 'completed',
+      status: 'successful',
       amount: amountToPay,
       currency: 'NGN',
       description: `Payment for ${fee.name} (${fee.academic_session})`,
@@ -529,7 +529,7 @@ router.get('/refunds', authenticateJWT, authorizeRoles('bursar', 'admin'), async
       'users.first_name',
       'users.last_name',
       'users.email',
-      'transactions.tx_ref'
+      'transactions.reference'
     )
     .orderBy('refunds.created_at', 'desc');
   res.json({ success: true, refunds });
@@ -581,9 +581,9 @@ router.put('/refunds/:refundId/process', authenticateJWT, authorizeRoles('bursar
       const refundRef = `REFUND-${Date.now()}-${refund.user_id.slice(0, 8)}`;
       await trx('transactions').insert({
         user_id: refund.user_id,
-        tx_ref: refundRef,
+        reference: refundRef,
         type: 'refund',
-        status: 'completed',
+        status: 'successful',
         amount: refund.amount,
         currency: 'NGN',
         description: `Refund: ${refund.reason || 'No reason provided'}`,
