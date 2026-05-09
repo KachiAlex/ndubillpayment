@@ -4,9 +4,7 @@
   "framework": null,
   "functions": {
     "api/index.js": {
-      "includeFiles": "backend/**",
-      "runtime": "nodejs20.x",
-      "maxDuration": 10
+      "includeFiles": "backend/**"
     }
   },
   "rewrites": [
