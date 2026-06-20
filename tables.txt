@@ -1,0 +1,10 @@
+[knexfile] DATABASE_URL host: ep-autumn-dawn-an0gbxyk-pooler.c-6.us-east-1.aws.neon.tech
+Tables: audit_logs, fee_payments, fees, knex_migrations, knex_migrations_lock, receipts, transactions, users, wallets
+
+Last migrations: [
+  '008_create_fee_payments_table.js',
+  '007_create_fees_table.js',
+  '006_alter_matric_number_nullable.js',
+  '005_create_audit_logs_table.js',
+  '004_create_receipts_table.js'
+]

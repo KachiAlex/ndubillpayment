@@ -1,0 +1,6 @@
+name,amount,academic_session,department,level,description,due_date
+Tuition Fee,150000,2024/2025,Computer Science,100,Regular tuition fee for the academic session,2024-12-31
+Library Fee,5000,2024/2025,ALL,All,Mandatory library access fee,2024-09-30
+Laboratory Fee,25000,2024/2025,Computer Science,100,Science laboratory maintenance fee,2024-10-31
+Sports Fee,10000,2024/2025,ALL,All,Sports and recreation facilities fee,2024-11-30
+Medical Fee,8000,2024/2025,ALL,All,Campus medical services fee,2024-08-31

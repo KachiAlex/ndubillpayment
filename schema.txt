@@ -1,0 +1,65 @@
+[knexfile] DATABASE_URL host: ep-autumn-dawn-an0gbxyk-pooler.c-6.us-east-1.aws.neon.tech
+
+=== users columns ===
+┌─────────┬──────────────────────────┬────────────────────────────┬───────────────┐
+│ (index) │ column_name              │ data_type                  │ udt_name      │
+├─────────┼──────────────────────────┼────────────────────────────┼───────────────┤
+│ 0       │ 'id'                     │ 'uuid'                     │ 'uuid'        │
+│ 1       │ 'matric_number'          │ 'character varying'        │ 'varchar'     │
+│ 2       │ 'email'                  │ 'character varying'        │ 'varchar'     │
+│ 3       │ 'password_hash'          │ 'character varying'        │ 'varchar'     │
+│ 4       │ 'first_name'             │ 'character varying'        │ 'varchar'     │
+│ 5       │ 'last_name'              │ 'character varying'        │ 'varchar'     │
+│ 6       │ 'department'             │ 'character varying'        │ 'varchar'     │
+│ 7       │ 'level'                  │ 'character varying'        │ 'varchar'     │
+│ 8       │ 'session'                │ 'character varying'        │ 'varchar'     │
+│ 9       │ 'user_type'              │ 'text'                     │ 'text'        │
+│ 10      │ 'is_active'              │ 'boolean'                  │ 'bool'        │
+│ 11      │ 'is_verified'            │ 'boolean'                  │ 'bool'        │
+│ 12      │ 'verification_token'     │ 'character varying'        │ 'varchar'     │
+│ 13      │ 'verification_expires'   │ 'timestamp with time zone' │ 'timestamptz' │
+│ 14      │ 'password_reset_token'   │ 'character varying'        │ 'varchar'     │
+│ 15      │ 'password_reset_expires' │ 'timestamp with time zone' │ 'timestamptz' │
+│ 16      │ 'two_factor_secret'      │ 'character varying'        │ 'varchar'     │
+│ 17      │ 'two_factor_enabled'     │ 'boolean'                  │ 'bool'        │
+│ 18      │ 'last_login'             │ 'timestamp with time zone' │ 'timestamptz' │
+│ 19      │ 'created_at'             │ 'timestamp with time zone' │ 'timestamptz' │
+│ 20      │ 'updated_at'             │ 'timestamp with time zone' │ 'timestamptz' │
+└─────────┴──────────────────────────┴────────────────────────────┴───────────────┘
+
+=== wallets columns ===
+┌─────────┬──────────────┬────────────────────────────┬───────────────┐
+│ (index) │ column_name  │ data_type                  │ udt_name      │
+├─────────┼──────────────┼────────────────────────────┼───────────────┤
+│ 0       │ 'id'         │ 'uuid'                     │ 'uuid'        │
+│ 1       │ 'user_id'    │ 'uuid'                     │ 'uuid'        │
+│ 2       │ 'balance'    │ 'numeric'                  │ 'numeric'     │
+│ 3       │ 'currency'   │ 'character varying'        │ 'varchar'     │
+│ 4       │ 'is_active'  │ 'boolean'                  │ 'bool'        │
+│ 5       │ 'created_at' │ 'timestamp with time zone' │ 'timestamptz' │
+│ 6       │ 'updated_at' │ 'timestamp with time zone' │ 'timestamptz' │
+└─────────┴──────────────┴────────────────────────────┴───────────────┘
+
+=== transactions columns ===
+┌─────────┬─────────────────────────────┬────────────────────────────┬───────────────┐
+│ (index) │ column_name                 │ data_type                  │ udt_name      │
+├─────────┼─────────────────────────────┼────────────────────────────┼───────────────┤
+│ 0       │ 'id'                        │ 'uuid'                     │ 'uuid'        │
+│ 1       │ 'user_id'                   │ 'uuid'                     │ 'uuid'        │
+│ 2       │ 'wallet_id'                 │ 'uuid'                     │ 'uuid'        │
+│ 3       │ 'reference'                 │ 'character varying'        │ 'varchar'     │
+│ 4       │ 'type'                      │ 'text'                     │ 'text'        │
+│ 5       │ 'status'                    │ 'text'                     │ 'text'        │
+│ 6       │ 'amount'                    │ 'numeric'                  │ 'numeric'     │
+│ 7       │ 'fee'                       │ 'numeric'                  │ 'numeric'     │
+│ 8       │ 'currency'                  │ 'character varying'        │ 'varchar'     │
+│ 9       │ 'description'               │ 'text'                     │ 'text'        │
+│ 10      │ 'payment_gateway_response'  │ 'json'                     │ 'json'        │
+│ 11      │ 'payment_method'            │ 'character varying'        │ 'varchar'     │
+│ 12      │ 'payment_channel'           │ 'character varying'        │ 'varchar'     │
+│ 13      │ 'paid_at'                   │ 'timestamp with time zone' │ 'timestamptz' │
+│ 14      │ 'transferred_to_school_at'  │ 'timestamp with time zone' │ 'timestamptz' │
+│ 15      │ 'school_transfer_reference' │ 'character varying'        │ 'varchar'     │
+│ 16      │ 'created_at'                │ 'timestamp with time zone' │ 'timestamptz' │
+│ 17      │ 'updated_at'                │ 'timestamp with time zone' │ 'timestamptz' │
+└─────────┴─────────────────────────────┴────────────────────────────┴───────────────┘

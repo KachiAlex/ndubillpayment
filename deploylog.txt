@@ -1,0 +1,64 @@
+Retrieving project…
+Deploying kachianietie/ndubillpayment
+Inspect: https://vercel.com/kachianietie/ndubillpayment/CGZ3ughMtx6epFcC92ZGVfUwPyYy [3s]
+Production: https://ndubillpayment-iubkg4axr-kachianietie.vercel.app [3s]
+https://ndubillpayment-iubkg4axr-kachianietie.vercel.appBuilding...
+Building...
+Building: Running build in Washington, D.C., USA (East) – iad1
+Building: Build machine configuration: 4 cores, 8 GB
+Building: Retrieving list of deployment files...
+Building: Downloading 102 deployment files...
+Building: Restored build cache from previous deployment (J8MAC57qZb7gPLr2h2FG4Ssche4U)
+Building: Running "vercel build"
+Building: Vercel CLI 51.6.1
+Building: Warning: Detected "engines": { "node": ">=18.0.0" } in your `package.json` that will automatically upgrade when a new major Node.js Version is released. Learn More: https://vercel.link/node-version
+Building: Running "install" command: `npm install && cd frontend && npm install`...
+Building: up to date, audited 221 packages in 742ms
+Building: 58 packages are looking for funding
+Building: run `npm fund` for details
+Building: found 0 vulnerabilities
+Building: up to date, audited 1403 packages in 6s
+Building: 273 packages are looking for funding
+Building: run `npm fund` for details
+Building: 49 vulnerabilities (11 low, 11 moderate, 27 high)
+Building: To address issues that do not require attention, run:
+Building: npm audit fix
+Building: To address all issues (including breaking changes), run:
+Building: npm audit fix --force
+Building: Run `npm audit` for details.
+Building: > ndu-tuition-frontend@1.0.0 build
+Building: > react-scripts build
+Building: (node:101) [DEP0176] DeprecationWarning: fs.F_OK is deprecated, use fs.constants.F_OK instead
+Building: (Use `node --trace-deprecation ...` to show where the warning was created)
+Building: Creating an optimized production build...
+Building: Browserslist: browsers data (caniuse-lite) is 8 months old. Please run:
+Building: npx update-browserslist-db@latest
+Building: Why you should do it regularly: https://github.com/browserslist/update-db#readme
+Building: Browserslist: browsers data (caniuse-lite) is 8 months old. Please run:
+Building: npx update-browserslist-db@latest
+Building: Why you should do it regularly: https://github.com/browserslist/update-db#readme
+Building: Compiled successfully.
+Building: File sizes after gzip:
+Building: 86.96 kB (-113 B)  build/static/js/main.c601d57a.js
+Building: 8.21 kB            build/static/css/main.dcf500b3.css
+Building: The project was built assuming it is hosted at /.
+Building: You can control this with the homepage field in your package.json.
+Building: The build folder is ready to be deployed.
+Building: You may serve it with a static server:
+Building: npm install -g serve
+Building: serve -s build
+Building: Find out more about deployment here:
+Building: https://cra.link/deployment
+Building: Warning: Detected "engines": { "node": ">=18.0.0" } in your `package.json` that will automatically upgrade when a new major Node.js Version is released. Learn More: https://vercel.link/node-version
+Building: Installing dependencies...
+Building: up to date in 336ms
+Building: 58 packages are looking for funding
+Building: run `npm fund` for details
+Building: Warning: Detected "engines": { "node": ">=18.0.0" } in your `package.json` that will automatically upgrade when a new major Node.js Version is released. Learn More: https://vercel.link/node-version
+Building: Build Completed in /vercel/output [17s]
+Building: Deploying outputs...
+Building: Deployment completed
+Building: Creating build cache...
+[2K[1A[2K[GProduction: https://ndubillpayment-iubkg4axr-kachianietie.vercel.app [35s]
+Completing...
+Aliased: https://ndubillpayment.vercel.app [35s]
